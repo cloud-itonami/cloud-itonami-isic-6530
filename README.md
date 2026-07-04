@@ -1,4 +1,4 @@
-# cloud-itonami-6530
+# cloud-itonami-isic-6530
 
 Open Business Blueprint for **ISIC Rev.5 6530**: Pension funding.
 

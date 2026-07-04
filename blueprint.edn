@@ -1,4 +1,4 @@
-{:itonami.blueprint/id "cloud-itonami-6530"
+{:itonami.blueprint/id "cloud-itonami-isic-6530"
  :itonami.blueprint/name "Pension funding"
  :itonami.blueprint/isic-rev5 "6530"
  :itonami.blueprint/domain :insurance/pension-funding

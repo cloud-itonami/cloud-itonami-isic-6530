@@ -2,7 +2,7 @@
 
 ## Classification
 
-- Repository: `cloud-itonami-6530`
+- Repository: `cloud-itonami-isic-6530`
 - ISIC Rev.5: `6530`
 - Activity: pension and retirement-benefit funds -- contribution collection, benefit-accrual tracking, and annuity/benefit disbursement
 - Social impact: financial inclusion, data sovereignty, transparent audit

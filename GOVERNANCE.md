@@ -1,6 +1,6 @@
 # Governance
 
-`cloud-itonami-6530` is an OSS open-business blueprint for pension and retirement-benefit funds -- contribution collection, benefit-accrual tracking, and annuity/benefit disbursement.
+`cloud-itonami-isic-6530` is an OSS open-business blueprint for pension and retirement-benefit funds -- contribution collection, benefit-accrual tracking, and annuity/benefit disbursement.
 Governance covers both the capability layer and the operator model.
 
 ## Maintainers
