@@ -32,7 +32,18 @@
 
 ## Trust Controls
 
-- no benefit is disbursed without human sign-off
-- a failed proof-of-life check halts continuing payout until reviewed, never auto-approved
-- every disbursement path is auditable
+- no benefit is disbursed and no payout continuation is authorized
+  without human sign-off
+- a fabricated jurisdiction benefit-disbursement/withholding citation,
+  unsupported evidence, a disbursement filed for an unvested member, a
+  requested amount that exceeds this vehicle's own independent
+  entitlement recompute, or a continuation attempt for a member who was
+  never in-payout -- each forces a hold, not an override
+- a failed proof-of-life check halts continuing payout until reviewed,
+  never auto-approved
+- a disbursement cannot be paid twice: a double-payment attempt is held
+  off this actor's own payment history alone, with no upstream
+  comparison needed
+- every intake, assessment, filing, payment, screening and
+  continuation path is auditable
 - emergency manual override paths remain outside LLM control
