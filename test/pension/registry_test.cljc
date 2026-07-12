@@ -15,10 +15,10 @@
   (is (= 12000000.0 (r/compute-max-disbursement {:accrued-benefit 12000000 :remaining-payment-periods 1} :annuity-installment))))
 
 (deftest compute-max-disbursement-validation-rules
-  (is (thrown? Exception (r/compute-max-disbursement {:accrued-benefit -1} :lump-sum)))
-  (is (thrown? Exception (r/compute-max-disbursement {:accrued-benefit 100 :disbursed-to-date -1} :lump-sum)))
-  (is (thrown? Exception (r/compute-max-disbursement {:accrued-benefit 100 :remaining-payment-periods 0} :annuity-installment)))
-  (is (thrown? Exception (r/compute-max-disbursement {:accrued-benefit 100} :unknown-type))))
+  (is (thrown? #?(:clj Exception :cljs js/Error) (r/compute-max-disbursement {:accrued-benefit -1} :lump-sum)))
+  (is (thrown? #?(:clj Exception :cljs js/Error) (r/compute-max-disbursement {:accrued-benefit 100 :disbursed-to-date -1} :lump-sum)))
+  (is (thrown? #?(:clj Exception :cljs js/Error) (r/compute-max-disbursement {:accrued-benefit 100 :remaining-payment-periods 0} :annuity-installment)))
+  (is (thrown? #?(:clj Exception :cljs js/Error) (r/compute-max-disbursement {:accrued-benefit 100} :unknown-type))))
 
 ;; ----------------------------- register-disbursement-payment -----------------------------
 
@@ -38,12 +38,12 @@
     (is (= (get-in result ["record" "immutable"]) true))))
 
 (deftest disbursement-payment-validation-rules
-  (is (thrown? Exception (r/register-disbursement-payment "" "disb-1" :lump-sum 5000000 "JPN" 0)))
-  (is (thrown? Exception (r/register-disbursement-payment "member-1" "" :lump-sum 5000000 "JPN" 0)))
-  (is (thrown? Exception (r/register-disbursement-payment "member-1" "disb-1" :unknown-type 5000000 "JPN" 0)))
-  (is (thrown? Exception (r/register-disbursement-payment "member-1" "disb-1" :lump-sum -1 "JPN" 0)))
-  (is (thrown? Exception (r/register-disbursement-payment "member-1" "disb-1" :lump-sum 5000000 "" 0)))
-  (is (thrown? Exception (r/register-disbursement-payment "member-1" "disb-1" :lump-sum 5000000 "JPN" -1))))
+  (is (thrown? #?(:clj Exception :cljs js/Error) (r/register-disbursement-payment "" "disb-1" :lump-sum 5000000 "JPN" 0)))
+  (is (thrown? #?(:clj Exception :cljs js/Error) (r/register-disbursement-payment "member-1" "" :lump-sum 5000000 "JPN" 0)))
+  (is (thrown? #?(:clj Exception :cljs js/Error) (r/register-disbursement-payment "member-1" "disb-1" :unknown-type 5000000 "JPN" 0)))
+  (is (thrown? #?(:clj Exception :cljs js/Error) (r/register-disbursement-payment "member-1" "disb-1" :lump-sum -1 "JPN" 0)))
+  (is (thrown? #?(:clj Exception :cljs js/Error) (r/register-disbursement-payment "member-1" "disb-1" :lump-sum 5000000 "" 0)))
+  (is (thrown? #?(:clj Exception :cljs js/Error) (r/register-disbursement-payment "member-1" "disb-1" :lump-sum 5000000 "JPN" -1))))
 
 (deftest payment-history-is-append-only
   (let [p1 (r/register-disbursement-payment "member-1" "disb-1" :lump-sum 5000000 "JPN" 0)
@@ -70,9 +70,9 @@
     (is (= (get-in result ["record" "immutable"]) true))))
 
 (deftest payout-continuation-validation-rules
-  (is (thrown? Exception (r/register-payout-continuation "" "GBR" 0)))
-  (is (thrown? Exception (r/register-payout-continuation "member-4" "" 0)))
-  (is (thrown? Exception (r/register-payout-continuation "member-4" "GBR" -1))))
+  (is (thrown? #?(:clj Exception :cljs js/Error) (r/register-payout-continuation "" "GBR" 0)))
+  (is (thrown? #?(:clj Exception :cljs js/Error) (r/register-payout-continuation "member-4" "" 0)))
+  (is (thrown? #?(:clj Exception :cljs js/Error) (r/register-payout-continuation "member-4" "GBR" -1))))
 
 (deftest continuation-history-is-append-only
   (let [c1 (r/register-payout-continuation "member-4" "GBR" 0)

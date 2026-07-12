@@ -99,10 +99,16 @@
   comparison at all -- `double-payment-violations` refuses to pay the
   SAME disbursement twice, off this actor's own payment history."
   (:require [pension.facts :as facts]
+            [pension.kernels.gate :as gate]
             [pension.registry :as registry]
             [pension.store :as store]))
 
-(def confidence-floor 0.6)
+(def confidence-floor
+  "Documented threshold. The DECIDING copy is
+  `pension.kernels.gate/confidence-floor-x100` (integer x100 in the
+  safety kernel); this def is kept for callers/docs and pinned equal by
+  `pension.kernels.gate-test`."
+  0.6)
 
 (def high-stakes
   "Stakes grave enough to always require a human, even when clean.
@@ -110,6 +116,12 @@
   stream past a proof-of-life check are the two real-world actuation
   events this actor performs."
   #{:actuation/pay-disbursement :actuation/continue-payout})
+
+(defn- confidence->x100
+  "Host bridge (façade-side, not kernel vocabulary): scale a 0.0..1.0
+  advisor confidence to the kernel's integer x100 wire code."
+  [c]
+  (Math/round (* 100.0 (double c))))
 
 ;; ----------------------------- checks -----------------------------
 
@@ -230,26 +242,47 @@
 (defn check
   "Censors a Pension-LLM proposal against the governor rules. Returns
    {:ok? bool :violations [..] :confidence c :escalate? bool :high-stakes? bool
-    :hard? bool}."
+    :hard? bool}.
+
+   - :hard?       -- at least one HARD violation. Forces HOLD; a human
+                    cannot override.
+   - :escalate?   -- soft: low confidence OR actuation. A human decides.
+   - :ok?         -- clean AND not escalating: safe to auto-commit."
   [request _context proposal st]
-  (let [hard (into []
-                   (concat (spec-basis-violations request proposal st)
-                           (evidence-incomplete-violations request st)
-                           (member-not-vested-violations request st)
-                           (disbursement-missing-violations request st)
-                           (disbursement-exceeds-entitlement-violations request st)
-                           (member-not-in-payout-violations request st)
-                           (proof-of-life-failed-violations request proposal st)
-                           (double-payment-violations request st)))
+  (let [spec-v     (spec-basis-violations request proposal st)
+        evid-v     (evidence-incomplete-violations request st)
+        unvested-v (member-not-vested-violations request st)
+        missing-v  (disbursement-missing-violations request st)
+        exceeds-v  (disbursement-exceeds-entitlement-violations request st)
+        payout-v   (member-not-in-payout-violations request st)
+        pol-v      (proof-of-life-failed-violations request proposal st)
+        double-v   (double-payment-violations request st)
+        hard (into [] (concat spec-v evid-v unvested-v missing-v exceeds-v
+                              payout-v pol-v double-v))
         conf (:confidence proposal 0.0)
-        low? (< conf confidence-floor)
         stakes? (boolean (high-stakes (:stake proposal)))
-        hard? (boolean (seq hard))]
-    {:ok?          (and (not hard?) (not low?) (not stakes?))
+        ;; The decision itself is delegated to the safety kernel
+        ;; (pension.kernels.gate, integer-coded fail-closed core);
+        ;; this façade only gathers evidence (violation lists with
+        ;; human-readable details) and maps codes back to keywords.
+        ;; Kernel is stricter than the old inline logic on ONE case by
+        ;; design: an out-of-range confidence (< 0 or > 1.0) now
+        ;; escalates instead of counting as high confidence.
+        code (gate/verdict-code (if (seq spec-v) 1 0)
+                                (if (seq evid-v) 1 0)
+                                (if (seq unvested-v) 1 0)
+                                (if (seq missing-v) 1 0)
+                                (if (seq exceeds-v) 1 0)
+                                (if (seq payout-v) 1 0)
+                                (if (seq pol-v) 1 0)
+                                (if (seq double-v) 1 0)
+                                (confidence->x100 conf)
+                                (if stakes? 1 0))]
+    {:ok?          (= 0 code)
      :violations   hard
      :confidence   conf
-     :hard?        hard?
-     :escalate?    (and (not hard?) (or low? stakes?))
+     :hard?        (= 2 code)
+     :escalate?    (= 1 code)
      :high-stakes? stakes?}))
 
 (defn hold-fact
