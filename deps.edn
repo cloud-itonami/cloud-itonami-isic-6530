@@ -16,7 +16,12 @@
   :run {:main-opts ["-m" "pension.sim"]}
   :test {:extra-paths ["test"]
          :extra-deps {io.github.cognitect-labs/test-runner
-                      {:git/tag "v0.5.1" :git/sha "dfb30dd"}}
+                      {:git/tag "v0.5.1" :git/sha "dfb30dd"}
+                      ;; kototama.tender hosts the wasm/disbursement_entitlement.kotoba
+                      ;; build (see wasm/README.md) -- test-only, the actor's
+                      ;; own runtime code has no wasm/host dependency.
+                      io.github.kotoba-lang/kototama
+                      {:local/root "../../kotoba-lang/kototama"}}
          :main-opts ["-m" "cognitect.test-runner"]
          :exec-fn cognitect.test-runner.api/test}
   ;; PRIMARY gate: the same portable .cljc suite under a real

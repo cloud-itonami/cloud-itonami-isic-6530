@@ -156,6 +156,7 @@ siblings have toward the same lib.
 | `src/pension/operation.cljc` | **OperationActor** -- langgraph-clj StateGraph |
 | `src/pension/sim.cljc` | demo driver |
 | `test/pension/*_test.clj` | governor contract · phase invariants · store parity · registry conformance · facts coverage |
+| `wasm/disbursement_entitlement.kotoba` | PoC: a WASM-compiled (`kotoba-lang/kotoba` -> `kotoba-lang/kototama`'s `actor:host` ABI) port of `pension.registry/compute-max-disbursement` + `pension.governor`'s `disbursement-exceeds-entitlement-violations` comparison -- see `wasm/README.md` for scope, the input/output ABI, and what's out of scope |
 
 ## Business-process coverage (honest)
 

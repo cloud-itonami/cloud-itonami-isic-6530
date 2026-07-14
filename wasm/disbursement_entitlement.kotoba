@@ -1,0 +1,45 @@
+(ns cloud-itonami-disbursement-entitlement)
+
+(defn max-lump-sum [accrued-benefit disbursed-to-date]
+  (if (> accrued-benefit disbursed-to-date)
+      (- accrued-benefit disbursed-to-date)
+      0))
+
+(defn max-annuity-installment [accrued-benefit remaining-payment-periods]
+  (if (> remaining-payment-periods 0)
+      (quot accrued-benefit remaining-payment-periods)
+      0))
+
+(defn max-entitlement [disbursement-type accrued-benefit disbursed-to-date remaining-payment-periods]
+  (if (= disbursement-type 0)
+      (max-lump-sum accrued-benefit disbursed-to-date)
+      (max-annuity-installment accrued-benefit remaining-payment-periods)))
+
+(defn within-entitlement?
+  [disbursement-type accrued-benefit disbursed-to-date remaining-payment-periods requested-amount]
+  (<= requested-amount
+      (max-entitlement disbursement-type accrued-benefit disbursed-to-date remaining-payment-periods)))
+
+;; ABI: `main` stays 0-arity (the compiler rejects a parameterized main --
+;; :main-arity, see kotoba-lang/kotoba's compile-wasm-expr) and reads its
+;; five real i32 inputs out of the exported linear memory instead, at
+;; fixed byte offsets a host writes into before calling main() (same
+;; convention as cloud-itonami-isic-6492's affordability.kotoba /
+;; cloud-itonami-isic-6511's underwriting_decision.kotoba /
+;; cloud-itonami-isic-6512's claim_coverage.kotoba /
+;; cloud-itonami-isic-6630's fee_accrual.kotoba):
+;;   offset 0:  disbursement-type            (i32, 0 = :lump-sum,
+;;                                            nonzero = :annuity-installment)
+;;   offset 4:  accrued-benefit              (i32, smallest currency unit /
+;;                                            cents)
+;;   offset 8:  disbursed-to-date            (i32, cents -- only used on the
+;;                                            :lump-sum branch)
+;;   offset 12: remaining-payment-periods    (i32 -- only used on the
+;;                                            :annuity-installment branch)
+;;   offset 16: requested-amount             (i32, cents -- the disbursement
+;;                                            draft's own requested payout)
+;; Returns 1 (requested-amount is within the independently-recomputed
+;; entitlement cap) or 0 (requested-amount EXCEEDS it -- pension.governor's
+;; :disbursement-exceeds-entitlement HARD violation).
+(defn main []
+  (within-entitlement? (mem-i32-at 0 0) (mem-i32-at 0 4) (mem-i32-at 0 8) (mem-i32-at 0 12) (mem-i32-at 0 16)))
