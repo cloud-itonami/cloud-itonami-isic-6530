@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pension funding — ISIC 6530</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #fafbfc;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        header {
+            margin-bottom: 40px;
+            border-bottom: 2px solid #e1e4e8;
+            padding-bottom: 20px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            color: #0366d6;
+        }
+
+        .isic-badge {
+            display: inline-block;
+            background: #f6f8fa;
+            border: 1px solid #d1d5da;
+            border-radius: 4px;
+            padding: 4px 12px;
+            font-size: 0.85rem;
+            color: #586069;
+            margin-bottom: 20px;
+        }
+
+        .pitch {
+            font-size: 1.1rem;
+            margin-bottom: 40px;
+            line-height: 1.8;
+            color: #24292e;
+        }
+
+        section {
+            margin-bottom: 40px;
+        }
+
+        h2 {
+            font-size: 1.3rem;
+            margin-bottom: 15px;
+            color: #24292e;
+            border-left: 3px solid #0366d6;
+            padding-left: 12px;
+        }
+
+        .links-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        a {
+            display: inline-block;
+            padding: 12px 16px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.2s;
+            width: 100%;
+            text-align: center;
+        }
+
+        .cta-primary {
+            background: #0366d6;
+            color: white;
+        }
+
+        .cta-primary:hover {
+            background: #0256c0;
+            box-shadow: 0 2px 8px rgba(3, 102, 214, 0.3);
+        }
+
+        .cta-secondary {
+            background: #f6f8fa;
+            color: #0366d6;
+            border: 1px solid #d1d5da;
+        }
+
+        .cta-secondary:hover {
+            background: #e1e4e8;
+            border-color: #0366d6;
+        }
+
+        .cta-tertiary {
+            background: transparent;
+            color: #0366d6;
+            border: 1px solid #0366d6;
+            padding: 11px 15px;
+        }
+
+        .cta-tertiary:hover {
+            background: #f6f8fa;
+        }
+
+        .link-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .link-list a {
+            background: transparent;
+            color: #0366d6;
+            text-align: left;
+            padding: 8px 0;
+        }
+
+        .link-list a::before {
+            content: "→ ";
+            margin-right: 6px;
+        }
+
+        .link-list a:hover {
+            text-decoration: underline;
+        }
+
+        footer {
+            border-top: 1px solid #e1e4e8;
+            padding-top: 20px;
+            margin-top: 40px;
+            font-size: 0.9rem;
+            color: #586069;
+        }
+
+        @media (max-width: 600px) {
+            h1 {
+                font-size: 2rem;
+            }
+
+            .pitch {
+                font-size: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Pension funding</h1>
+            <span class="isic-badge">ISIC Rev.5 6530</span>
+        </header>
+
+        <section>
+            <div class="pitch">
+                <p>A governed, open-source pension and retirement-benefit fund for member enrollment, benefit-accrual tracking, and annuity disbursement. This actor covers member intake through disbursement payment, and proof-of-life screening through payout continuation for both defined-benefit and defined-contribution plan types. Every intake, assessment, filing, payment, screening and continuation decision is auditable, and no benefit is disbursed and no payout continuation is authorized without human sign-off. Designed for occupational pension funds, cooperative and mutual retirement funds, municipal pension administrators, and employers self-administering a pension plan.</p>
+            </div>
+        </section>
+
+        <section>
+            <h2>Quick Start</h2>
+            <div class="links-group">
+                <a href="operator-quickstart.md" class="cta-secondary">Operator Quick Start</a>
+                <a href="../README.md" class="cta-secondary">Full README</a>
+            </div>
+        </section>
+
+        <section>
+            <h2>Open Business</h2>
+            <div class="link-list">
+                <a href="business-model.md">Business Model & Customer Offer</a>
+                <a href="operator-guide.md">Operator Guide & Deployment</a>
+                <a href="adr/0001-architecture.md">Architecture & Design Decisions</a>
+            </div>
+        </section>
+
+        <section>
+            <h2>Deploy</h2>
+            <div class="links-group">
+                <a href="https://itonami.cloud/isco-1212/" class="cta-primary">Free: Fork & Self-Host</a>
+                <a href="https://itonami.cloud/docs/go-live.md" class="cta-secondary">Managed: Go-Live Path</a>
+            </div>
+        </section>
+
+        <footer>
+            <p>AGPL-3.0-or-later. Built on <a href="https://github.com/com-junkawasaki/langgraph-clj">langgraph-clj</a>. Part of the <a href="https://github.com/cloud-itonami/">cloud-itonami</a> open business blueprint family.</p>
+        </footer>
+    </div>
+</body>
+</html>
