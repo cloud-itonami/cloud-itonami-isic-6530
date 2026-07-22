@@ -38,10 +38,9 @@
   audit trail a member trusting a fund with their retirement benefit
   needs, and the evidence an operator needs if a disbursement or a
   continuation is later disputed."
-  (:require #?(:clj  [clojure.edn :as edn]
-               :cljs [cljs.reader :as edn])
-            [pension.registry :as registry]
-            [langchain.db :as d]))
+  (:require [pension.registry :as registry]
+            [langchain.db :as d]
+            [langchain-store.core :as ls]))
 
 (defprotocol Store
   (member [s id])
@@ -220,8 +219,10 @@
    :sequence/jurisdiction           {:db/unique :db.unique/identity}
    :continuation-sequence/jurisdiction {:db/unique :db.unique/identity}})
 
-(defn- enc [v] (pr-str v))
-(defn- dec* [s] (when s (edn/read-string s)))
+;; the EDN-blob codec (enc/dec*) is shared machinery -- see
+;; kotoba-lang/langchain-store's docstring (ADR-2607141600).
+(defn- enc [v] (ls/enc v))
+(defn- dec* [s] (ls/dec* s))
 
 (defn- member->tx [{:keys [id name employer plan-type accrued-benefit disbursed-to-date
                           remaining-payment-periods vested? status proof-of-life-hit? jurisdiction]}]
