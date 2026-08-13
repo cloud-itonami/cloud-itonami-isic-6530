@@ -18,6 +18,16 @@
          {:local/root "../../kotoba-lang/langchain"}}}
   ;; clojure -M:dev:run  -> drive the demo through one OperationActor
   :run {:main-opts ["-m" "pension.sim"]}
+  ;; clojure -M:render-html [out-file] -> regenerate
+  ;; docs/samples/operator-console.html by driving the REAL actor
+  ;; (operation -> governor -> store) and projecting the store it
+  ;; wrote. Flagship checklist item 2. jp-go-dds supplies the shared
+  ;; cloud-itonami operator-console skin; it is git-coordinate (not
+  ;; :local/root) so a standalone fork of this repo can still render.
+  :render-html {:extra-deps {io.github.kotoba-lang/jp-go-digital-design-system
+                             {:git/url "https://github.com/kotoba-lang/jp-go-digital-design-system"
+                              :git/sha "83db99546eabc53613ae826ea41d1533a3c574af"}}
+                :main-opts ["-m" "pension.render-html"]}
   :test {:extra-paths ["test"]
          :extra-deps {io.github.cognitect-labs/test-runner
                       {:git/tag "v0.5.1" :git/sha "dfb30dd"}
