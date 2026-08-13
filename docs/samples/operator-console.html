@@ -2502,23 +2502,23 @@ img,svg { max-width: 100%; height: auto; }</style></head><body>
     <table>
       <thead><tr><th>Thread</th><th>Phase</th><th>Op</th><th>Subject</th><th>Scenario</th><th>Human gate</th><th>Disposition</th><th>承認者</th></tr></thead>
       <tbody>
-        <tr><td><code>t1</code></td><td>3</td><td><code>intake</code></td><td><code>member-1</code></td><td>会員記録の受付 (clean, no capital risk)</td><td><span class="muted">—</span></td><td><span class="ok">committed</span></td><td><span class="muted">—</span></td></tr>
-        <tr><td><code>t2</code></td><td>3</td><td><code>assess</code></td><td><code>member-1</code></td><td>法域の給付要件アセスメント (human approves)</td><td><span class="warn">human gate</span></td><td><span class="ok">committed</span></td><td><code>op-1</code></td></tr>
-        <tr><td><code>t3</code></td><td>3</td><td><code>file</code></td><td><code>disb-1</code></td><td>給付金請求の受付 (vested member; filing moves no capital)</td><td><span class="muted">—</span></td><td><span class="ok">committed</span></td><td><span class="muted">—</span></td></tr>
-        <tr><td><code>t4</code></td><td>3</td><td><code>pay</code></td><td><code>disb-1</code></td><td>給付金の支払い (ALWAYS escalates; human approves)</td><td><span class="warn">human gate</span></td><td><span class="ok">committed</span></td><td><code>op-1</code></td></tr>
-        <tr><td><code>t5</code></td><td>3</td><td><code>screen</code></td><td><code>member-4</code></td><td>生存確認スクリーニング (clear; human approves)</td><td><span class="warn">human gate</span></td><td><span class="ok">committed</span></td><td><code>op-1</code></td></tr>
-        <tr><td><code>t6</code></td><td>3</td><td><code>continue</code></td><td><code>member-4</code></td><td>年金継続支払い (ALWAYS escalates; human approves)</td><td><span class="warn">human gate</span></td><td><span class="ok">committed</span></td><td><code>op-1</code></td></tr>
-        <tr><td><code>t7</code></td><td>3</td><td><code>assess</code></td><td><code>member-2</code></td><td>未登録法域の要件を創作した提案</td><td><span class="muted">—</span></td><td><span class="critical">HARD hold</span></td><td><span class="muted">—</span></td></tr>
-        <tr><td><code>t8</code></td><td>3</td><td><code>file</code></td><td><code>disb-2</code></td><td>権利未確定(unvested)会員の給付金請求</td><td><span class="muted">—</span></td><td><span class="critical">HARD hold</span></td><td><span class="muted">—</span></td></tr>
-        <tr><td><code>t9</code></td><td>3</td><td><code>file</code></td><td><code>disb-3</code></td><td>2件目の請求受付 (filing itself is clean)</td><td><span class="muted">—</span></td><td><span class="ok">committed</span></td><td><span class="muted">—</span></td></tr>
-        <tr><td><code>t10</code></td><td>3</td><td><code>pay</code></td><td><code>disb-3</code></td><td>残存権利額を超える支払い提案</td><td><span class="muted">—</span></td><td><span class="critical">HARD hold</span></td><td><span class="muted">—</span></td></tr>
-        <tr><td><code>t11</code></td><td>3</td><td><code>file</code></td><td><code>disb-4</code></td><td>アセスメント未実施会員への請求受付 (clean)</td><td><span class="muted">—</span></td><td><span class="ok">committed</span></td><td><span class="muted">—</span></td></tr>
-        <tr><td><code>t12</code></td><td>3</td><td><code>pay</code></td><td><code>disb-4</code></td><td>必要書類が未充足のままの支払い提案</td><td><span class="muted">—</span></td><td><span class="critical">HARD hold</span></td><td><span class="muted">—</span></td></tr>
-        <tr><td><code>t13</code></td><td>3</td><td><code>screen</code></td><td><code>member-5</code></td><td>生存確認に失敗した会員のスクリーニング</td><td><span class="muted">—</span></td><td><span class="critical">HARD hold</span></td><td><span class="muted">—</span></td></tr>
-        <tr><td><code>t14</code></td><td>3</td><td><code>continue</code></td><td><code>member-6</code></td><td>支払中でない会員の継続支払い提案</td><td><span class="muted">—</span></td><td><span class="critical">HARD hold</span></td><td><span class="muted">—</span></td></tr>
-        <tr><td><code>t15</code></td><td>3</td><td><code>pay</code></td><td><code>disb-999</code></td><td>存在しない給付金請求の支払い提案</td><td><span class="muted">—</span></td><td><span class="critical">HARD hold</span></td><td><span class="muted">—</span></td></tr>
-        <tr><td><code>t16</code></td><td>3</td><td><code>pay</code></td><td><code>disb-1</code></td><td>支払い済み請求の二重支払い提案</td><td><span class="muted">—</span></td><td><span class="critical">HARD hold</span></td><td><span class="muted">—</span></td></tr>
-        <tr><td><code>t17</code></td><td>1</td><td><code>assess</code></td><td><code>member-4</code></td><td>phase 1 では書き込み対象外の操作</td><td><span class="muted">—</span></td><td><span class="warn">phase hold · phase-disabled</span></td><td><span class="muted">—</span></td></tr>
+        <tr><td><code>t1</code></td><td>3</td><td><code>member/intake</code></td><td><code>member-1</code></td><td>会員記録の受付 (clean, no capital risk)</td><td><span class="muted">—</span></td><td><span class="ok">committed</span></td><td><span class="muted">—</span></td></tr>
+        <tr><td><code>t2</code></td><td>3</td><td><code>jurisdiction/assess</code></td><td><code>member-1</code></td><td>法域の給付要件アセスメント (human approves)</td><td><span class="warn">human gate</span></td><td><span class="ok">committed</span></td><td><code>op-1</code></td></tr>
+        <tr><td><code>t3</code></td><td>3</td><td><code>disbursement/file</code></td><td><code>disb-1</code></td><td>給付金請求の受付 (vested member; filing moves no capital)</td><td><span class="muted">—</span></td><td><span class="ok">committed</span></td><td><span class="muted">—</span></td></tr>
+        <tr><td><code>t4</code></td><td>3</td><td><code>disbursement/pay</code></td><td><code>disb-1</code></td><td>給付金の支払い (ALWAYS escalates; human approves)</td><td><span class="warn">human gate</span></td><td><span class="ok">committed</span></td><td><code>op-1</code></td></tr>
+        <tr><td><code>t5</code></td><td>3</td><td><code>proof-of-life/screen</code></td><td><code>member-4</code></td><td>生存確認スクリーニング (clear; human approves)</td><td><span class="warn">human gate</span></td><td><span class="ok">committed</span></td><td><code>op-1</code></td></tr>
+        <tr><td><code>t6</code></td><td>3</td><td><code>payout/continue</code></td><td><code>member-4</code></td><td>年金継続支払い (ALWAYS escalates; human approves)</td><td><span class="warn">human gate</span></td><td><span class="ok">committed</span></td><td><code>op-1</code></td></tr>
+        <tr><td><code>t7</code></td><td>3</td><td><code>jurisdiction/assess</code></td><td><code>member-2</code></td><td>未登録法域の要件を創作した提案</td><td><span class="muted">—</span></td><td><span class="critical">HARD hold</span></td><td><span class="muted">—</span></td></tr>
+        <tr><td><code>t8</code></td><td>3</td><td><code>disbursement/file</code></td><td><code>disb-2</code></td><td>権利未確定(unvested)会員の給付金請求</td><td><span class="muted">—</span></td><td><span class="critical">HARD hold</span></td><td><span class="muted">—</span></td></tr>
+        <tr><td><code>t9</code></td><td>3</td><td><code>disbursement/file</code></td><td><code>disb-3</code></td><td>2件目の請求受付 (filing itself is clean)</td><td><span class="muted">—</span></td><td><span class="ok">committed</span></td><td><span class="muted">—</span></td></tr>
+        <tr><td><code>t10</code></td><td>3</td><td><code>disbursement/pay</code></td><td><code>disb-3</code></td><td>残存権利額を超える支払い提案</td><td><span class="muted">—</span></td><td><span class="critical">HARD hold</span></td><td><span class="muted">—</span></td></tr>
+        <tr><td><code>t11</code></td><td>3</td><td><code>disbursement/file</code></td><td><code>disb-4</code></td><td>アセスメント未実施会員への請求受付 (clean)</td><td><span class="muted">—</span></td><td><span class="ok">committed</span></td><td><span class="muted">—</span></td></tr>
+        <tr><td><code>t12</code></td><td>3</td><td><code>disbursement/pay</code></td><td><code>disb-4</code></td><td>必要書類が未充足のままの支払い提案</td><td><span class="muted">—</span></td><td><span class="critical">HARD hold</span></td><td><span class="muted">—</span></td></tr>
+        <tr><td><code>t13</code></td><td>3</td><td><code>proof-of-life/screen</code></td><td><code>member-5</code></td><td>生存確認に失敗した会員のスクリーニング</td><td><span class="muted">—</span></td><td><span class="critical">HARD hold</span></td><td><span class="muted">—</span></td></tr>
+        <tr><td><code>t14</code></td><td>3</td><td><code>payout/continue</code></td><td><code>member-6</code></td><td>支払中でない会員の継続支払い提案</td><td><span class="muted">—</span></td><td><span class="critical">HARD hold</span></td><td><span class="muted">—</span></td></tr>
+        <tr><td><code>t15</code></td><td>3</td><td><code>disbursement/pay</code></td><td><code>disb-999</code></td><td>存在しない給付金請求の支払い提案</td><td><span class="muted">—</span></td><td><span class="critical">HARD hold</span></td><td><span class="muted">—</span></td></tr>
+        <tr><td><code>t16</code></td><td>3</td><td><code>disbursement/pay</code></td><td><code>disb-1</code></td><td>支払い済み請求の二重支払い提案</td><td><span class="muted">—</span></td><td><span class="critical">HARD hold</span></td><td><span class="muted">—</span></td></tr>
+        <tr><td><code>t17</code></td><td>1</td><td><code>jurisdiction/assess</code></td><td><code>member-4</code></td><td>phase 1 では書き込み対象外の操作</td><td><span class="muted">—</span></td><td><span class="warn">phase hold · phase-disabled</span></td><td><span class="muted">—</span></td></tr>
       </tbody>
     </table>
   </section>
@@ -2528,14 +2528,14 @@ img,svg { max-width: 100%; height: auto; }</style></head><body>
     <table>
       <thead><tr><th>Op</th><th>Subject</th><th>Rule</th><th>Detail (governor 出力)</th><th>LLM confidence</th></tr></thead>
       <tbody>
-        <tr><td><code>assess</code></td><td><code>member-2</code></td><td><span class="critical">no-spec-basis</span></td><td>公式spec-basisの引用が無い提案は法域要件として扱えない</td><td>0.9</td></tr>
-        <tr><td><code>file</code></td><td><code>disb-2</code></td><td><span class="critical">member-not-vested</span></td><td>member-3 は権利確定(vested)していないため、給付金の請求は受理できない</td><td>0.95</td></tr>
-        <tr><td><code>pay</code></td><td><code>disb-3</code></td><td><span class="critical">disbursement-exceeds-entitlement</span></td><td>disb-3 の請求額(10000000)が独自再計算の権利上限(7000000.0)を超過している</td><td>0.3</td></tr>
-        <tr><td><code>pay</code></td><td><code>disb-4</code></td><td><span class="critical">evidence-incomplete</span></td><td>法域の必要書類(年金請求書/源泉徴収申告書等)が充足していない状態での支払提案</td><td>0.9</td></tr>
-        <tr><td><code>screen</code></td><td><code>member-5</code></td><td><span class="critical">proof-of-life-failed</span></td><td>生存確認(proof-of-life)に失敗した会員を含む提案は進められない</td><td>0.95</td></tr>
-        <tr><td><code>continue</code></td><td><code>member-6</code></td><td><span class="critical">member-not-in-payout</span></td><td>member-6 は年金支払中(in-payout)ではないため、継続支払いは承認できない</td><td>0.3</td></tr>
-        <tr><td><code>pay</code></td><td><code>disb-999</code></td><td><span class="critical">disbursement-missing</span></td><td>disb-999 という給付金請求は登録されていない</td><td>0.3</td></tr>
-        <tr><td><code>pay</code></td><td><code>disb-1</code></td><td><span class="critical">double-payment</span></td><td>disb-1 は既に給付金支払い済み</td><td>0.9</td></tr>
+        <tr><td><code>jurisdiction/assess</code></td><td><code>member-2</code></td><td><span class="critical">no-spec-basis</span></td><td>公式spec-basisの引用が無い提案は法域要件として扱えない</td><td>0.9</td></tr>
+        <tr><td><code>disbursement/file</code></td><td><code>disb-2</code></td><td><span class="critical">member-not-vested</span></td><td>member-3 は権利確定(vested)していないため、給付金の請求は受理できない</td><td>0.95</td></tr>
+        <tr><td><code>disbursement/pay</code></td><td><code>disb-3</code></td><td><span class="critical">disbursement-exceeds-entitlement</span></td><td>disb-3 の請求額(10000000)が独自再計算の権利上限(7000000.0)を超過している</td><td>0.3</td></tr>
+        <tr><td><code>disbursement/pay</code></td><td><code>disb-4</code></td><td><span class="critical">evidence-incomplete</span></td><td>法域の必要書類(年金請求書/源泉徴収申告書等)が充足していない状態での支払提案</td><td>0.9</td></tr>
+        <tr><td><code>proof-of-life/screen</code></td><td><code>member-5</code></td><td><span class="critical">proof-of-life-failed</span></td><td>生存確認(proof-of-life)に失敗した会員を含む提案は進められない</td><td>0.95</td></tr>
+        <tr><td><code>payout/continue</code></td><td><code>member-6</code></td><td><span class="critical">member-not-in-payout</span></td><td>member-6 は年金支払中(in-payout)ではないため、継続支払いは承認できない</td><td>0.3</td></tr>
+        <tr><td><code>disbursement/pay</code></td><td><code>disb-999</code></td><td><span class="critical">disbursement-missing</span></td><td>disb-999 という給付金請求は登録されていない</td><td>0.3</td></tr>
+        <tr><td><code>disbursement/pay</code></td><td><code>disb-1</code></td><td><span class="critical">double-payment</span></td><td>disb-1 は既に給付金支払い済み</td><td>0.9</td></tr>
       </tbody>
     </table>
   </section>
@@ -2545,7 +2545,7 @@ img,svg { max-width: 100%; height: auto; }</style></head><body>
     <table>
       <thead><tr><th>Op</th><th>Subject</th><th>Phase</th><th>Reason</th><th>Violations</th></tr></thead>
       <tbody>
-        <tr><td><code>assess</code></td><td><code>member-4</code></td><td>1</td><td><code>phase-disabled</code></td><td>0 <span class="muted">(governor found nothing)</span></td></tr>
+        <tr><td><code>jurisdiction/assess</code></td><td><code>member-4</code></td><td>1</td><td><code>phase-disabled</code></td><td>0 <span class="muted">(governor found nothing)</span></td></tr>
       </tbody>
     </table>
   </section>
@@ -2556,9 +2556,9 @@ img,svg { max-width: 100%; height: auto; }</style></head><body>
       <thead><tr><th>Phase</th><th>Label</th><th>Writes enabled</th><th>Auto-commit when clean</th></tr></thead>
       <tbody>
         <tr><td>0</td><td><code>read-only</code></td><td><span class="muted">none</span></td><td><span class="muted">none</span></td></tr>
-        <tr><td>1</td><td><code>assisted-intake</code></td><td><code>intake</code></td><td><span class="muted">none</span></td></tr>
-        <tr><td>2</td><td><code>assisted-assess</code></td><td><code>assess</code> <code>intake</code> <code>screen</code></td><td><span class="muted">none</span></td></tr>
-        <tr><td>3</td><td><code>supervised-auto</code></td><td><code>assess</code> <code>continue</code> <code>file</code> <code>intake</code> <code>pay</code> <code>screen</code></td><td><code>file</code> <code>intake</code></td></tr>
+        <tr><td>1</td><td><code>assisted-intake</code></td><td><code>member/intake</code></td><td><span class="muted">none</span></td></tr>
+        <tr><td>2</td><td><code>assisted-assess</code></td><td><code>jurisdiction/assess</code> <code>member/intake</code> <code>proof-of-life/screen</code></td><td><span class="muted">none</span></td></tr>
+        <tr><td>3</td><td><code>supervised-auto</code></td><td><code>disbursement/file</code> <code>disbursement/pay</code> <code>jurisdiction/assess</code> <code>member/intake</code> <code>payout/continue</code> <code>proof-of-life/screen</code></td><td><code>disbursement/file</code> <code>member/intake</code></td></tr>
       </tbody>
     </table>
   </section>
@@ -2568,23 +2568,23 @@ img,svg { max-width: 100%; height: auto; }</style></head><body>
     <table>
       <thead><tr><th>Fact</th><th>Op</th><th>Subject</th><th>Disposition</th><th>Basis</th></tr></thead>
       <tbody>
-        <tr><td><code>committed</code></td><td><code>intake</code></td><td><code>member-1</code></td><td>commit</td><td>id / status</td></tr>
-        <tr><td><code>committed</code></td><td><code>assess</code></td><td><code>member-1</code></td><td>commit</td><td>確定給付企業年金法・確定拠出年金法 (Defined Benefit/Defined Contribution Corporate Pension Acts) / https://www.mhlw.go.jp/</td></tr>
-        <tr><td><code>committed</code></td><td><code>file</code></td><td><code>disb-1</code></td><td>commit</td><td>member-id / requested-amount</td></tr>
-        <tr><td><code>committed</code></td><td><code>pay</code></td><td><code>disb-1</code></td><td>commit</td><td>member-1</td></tr>
-        <tr><td><code>committed</code></td><td><code>screen</code></td><td><code>member-4</code></td><td>commit</td><td>proof-of-life-check</td></tr>
-        <tr><td><code>committed</code></td><td><code>continue</code></td><td><code>member-4</code></td><td>commit</td><td>member-4</td></tr>
-        <tr><td><code>governor-hold</code></td><td><code>assess</code></td><td><code>member-2</code></td><td>hold</td><td>no-spec-basis</td></tr>
-        <tr><td><code>governor-hold</code></td><td><code>file</code></td><td><code>disb-2</code></td><td>hold</td><td>member-not-vested</td></tr>
-        <tr><td><code>committed</code></td><td><code>file</code></td><td><code>disb-3</code></td><td>commit</td><td>member-id / requested-amount</td></tr>
-        <tr><td><code>governor-hold</code></td><td><code>pay</code></td><td><code>disb-3</code></td><td>hold</td><td>disbursement-exceeds-entitlement</td></tr>
-        <tr><td><code>committed</code></td><td><code>file</code></td><td><code>disb-4</code></td><td>commit</td><td>member-id / requested-amount</td></tr>
-        <tr><td><code>governor-hold</code></td><td><code>pay</code></td><td><code>disb-4</code></td><td>hold</td><td>evidence-incomplete</td></tr>
-        <tr><td><code>governor-hold</code></td><td><code>screen</code></td><td><code>member-5</code></td><td>hold</td><td>proof-of-life-failed</td></tr>
-        <tr><td><code>governor-hold</code></td><td><code>continue</code></td><td><code>member-6</code></td><td>hold</td><td>member-not-in-payout</td></tr>
-        <tr><td><code>governor-hold</code></td><td><code>pay</code></td><td><code>disb-999</code></td><td>hold</td><td>disbursement-missing</td></tr>
-        <tr><td><code>governor-hold</code></td><td><code>pay</code></td><td><code>disb-1</code></td><td>hold</td><td>double-payment</td></tr>
-        <tr><td><code>governor-hold</code></td><td><code>assess</code></td><td><code>member-4</code></td><td>hold</td><td></td></tr>
+        <tr><td><code>committed</code></td><td><code>member/intake</code></td><td><code>member-1</code></td><td>commit</td><td>id / status</td></tr>
+        <tr><td><code>committed</code></td><td><code>jurisdiction/assess</code></td><td><code>member-1</code></td><td>commit</td><td>確定給付企業年金法・確定拠出年金法 (Defined Benefit/Defined Contribution Corporate Pension Acts) / https://www.mhlw.go.jp/</td></tr>
+        <tr><td><code>committed</code></td><td><code>disbursement/file</code></td><td><code>disb-1</code></td><td>commit</td><td>member-id / requested-amount</td></tr>
+        <tr><td><code>committed</code></td><td><code>disbursement/pay</code></td><td><code>disb-1</code></td><td>commit</td><td>member-1</td></tr>
+        <tr><td><code>committed</code></td><td><code>proof-of-life/screen</code></td><td><code>member-4</code></td><td>commit</td><td>proof-of-life-check</td></tr>
+        <tr><td><code>committed</code></td><td><code>payout/continue</code></td><td><code>member-4</code></td><td>commit</td><td>member-4</td></tr>
+        <tr><td><code>governor-hold</code></td><td><code>jurisdiction/assess</code></td><td><code>member-2</code></td><td>hold</td><td>no-spec-basis</td></tr>
+        <tr><td><code>governor-hold</code></td><td><code>disbursement/file</code></td><td><code>disb-2</code></td><td>hold</td><td>member-not-vested</td></tr>
+        <tr><td><code>committed</code></td><td><code>disbursement/file</code></td><td><code>disb-3</code></td><td>commit</td><td>member-id / requested-amount</td></tr>
+        <tr><td><code>governor-hold</code></td><td><code>disbursement/pay</code></td><td><code>disb-3</code></td><td>hold</td><td>disbursement-exceeds-entitlement</td></tr>
+        <tr><td><code>committed</code></td><td><code>disbursement/file</code></td><td><code>disb-4</code></td><td>commit</td><td>member-id / requested-amount</td></tr>
+        <tr><td><code>governor-hold</code></td><td><code>disbursement/pay</code></td><td><code>disb-4</code></td><td>hold</td><td>evidence-incomplete</td></tr>
+        <tr><td><code>governor-hold</code></td><td><code>proof-of-life/screen</code></td><td><code>member-5</code></td><td>hold</td><td>proof-of-life-failed</td></tr>
+        <tr><td><code>governor-hold</code></td><td><code>payout/continue</code></td><td><code>member-6</code></td><td>hold</td><td>member-not-in-payout</td></tr>
+        <tr><td><code>governor-hold</code></td><td><code>disbursement/pay</code></td><td><code>disb-999</code></td><td>hold</td><td>disbursement-missing</td></tr>
+        <tr><td><code>governor-hold</code></td><td><code>disbursement/pay</code></td><td><code>disb-1</code></td><td>hold</td><td>double-payment</td></tr>
+        <tr><td><code>governor-hold</code></td><td><code>jurisdiction/assess</code></td><td><code>member-4</code></td><td>hold</td><td></td></tr>
       </tbody>
     </table>
   </section>
@@ -2614,10 +2614,10 @@ img,svg { max-width: 100%; height: auto; }</style></head><body>
     <table>
       <thead><tr><th>Op</th><th>Subject</th><th>承認者 (audit)</th><th>Committed register</th><th>Records</th><th>Retained on record?</th></tr></thead>
       <tbody>
-        <tr><td><code>assess</code></td><td><code>member-1</code></td><td><code>op-1</code></td><td>assessment 台帳</td><td>1</td><td><span class="ok">retained · op-1</span></td></tr>
-        <tr><td><code>pay</code></td><td><code>disb-1</code></td><td><code>op-1</code></td><td>disbursement-payment draft</td><td>1</td><td><span class="warn">audit only — not retained on record</span></td></tr>
-        <tr><td><code>screen</code></td><td><code>member-4</code></td><td><code>op-1</code></td><td>proof-of-life 台帳</td><td>1</td><td><span class="ok">retained · op-1</span></td></tr>
-        <tr><td><code>continue</code></td><td><code>member-4</code></td><td><code>op-1</code></td><td>payout-continuation draft</td><td>1</td><td><span class="warn">audit only — not retained on record</span></td></tr>
+        <tr><td><code>jurisdiction/assess</code></td><td><code>member-1</code></td><td><code>op-1</code></td><td>assessment 台帳</td><td>1</td><td><span class="ok">retained · op-1</span></td></tr>
+        <tr><td><code>disbursement/pay</code></td><td><code>disb-1</code></td><td><code>op-1</code></td><td>disbursement-payment draft</td><td>1</td><td><span class="warn">audit only — not retained on record</span></td></tr>
+        <tr><td><code>proof-of-life/screen</code></td><td><code>member-4</code></td><td><code>op-1</code></td><td>proof-of-life 台帳</td><td>1</td><td><span class="ok">retained · op-1</span></td></tr>
+        <tr><td><code>payout/continue</code></td><td><code>member-4</code></td><td><code>op-1</code></td><td>payout-continuation draft</td><td>1</td><td><span class="warn">audit only — not retained on record</span></td></tr>
       </tbody>
     </table>
   </section>

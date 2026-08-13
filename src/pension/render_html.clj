@@ -234,7 +234,14 @@
       (str/replace "<" "&lt;")
       (str/replace ">" "&gt;")))
 
-(defn- nm [v] (if (keyword? v) (name v) (str v)))
+(defn- nm
+  "Keyword -> its printed name WITHOUT the leading colon but WITH the
+  namespace. `clojure.core/name` is wrong here: it renders
+  `:disbursement/pay` as \"pay\" and `:disbursement/file` as \"file\",
+  dropping exactly the qualifier that says which register the op
+  writes."
+  [v]
+  (if (keyword? v) (subs (str v) 1) (str v)))
 
 (defn- row [& cells]
   (str "        <tr>" (str/join (map #(str "<td>" % "</td>") cells)) "</tr>"))
