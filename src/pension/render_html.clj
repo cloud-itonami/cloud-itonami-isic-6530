@@ -4,552 +4,736 @@
   Closes flagship checklist item 2 for `cloud-itonami-isic-6530`: this
   repo previously had NO demo page and no generator at all. This
   namespace drives the REAL actor stack (`pension.operation` ->
-  `pension.governor` -> `pension.store`, through `langgraph.graph/run*`
-  exactly as `pension.sim` and `pension.governor-contract-test` do) and
-  renders the resulting store. Nothing on the page is hand-typed
-  domain content: every member, disbursement, entitlement figure,
-  violation detail, disbursement-payment/payout-continuation draft
-  number and approver attribution is read back out of the store the
-  run actually wrote.
+  `pension.governor` -> `pension.phase` -> `pension.store`) through
+  `langgraph.graph/run*`, exactly the way this repo's own
+  `pension.sim` demo driver does (`clojure -M:dev:run`, confirmed to
+  run green against the real seeded member ids `member-1`..`member-6`
+  BEFORE this file was written), and renders the resulting store +
+  audit ledger.
 
-  The scenario is a superset of this repo's own `pension.sim` demo
-  driver (`clojure -M:dev:run`, confirmed BEFORE writing this file to
-  produce a sensible ledger against the real seeded member ids
-  `member-1`..`member-6`), extended so that:
+  EVERYTHING on the page is real output of the run performed at build
+  time: member records, disbursement records, jurisdiction spec-basis
+  citations, entitlement caps, governor violation rules and their
+  Japanese detail strings, the draft disbursement-payment /
+  payout-continuation record ids, and the approver attribution. Nothing
+  is hand-typed. Where a value cannot be obtained from the store, the
+  page SAYS SO rather than inventing one -- see `attribution-rows`,
+  which derives whether an approver actually survived into each written
+  record by looking for the key, so the page self-corrects if the store
+  is later changed.
 
-    * ALL EIGHT of `pension.governor`'s HARD rules fire at least once
-      (sim exercises seven; `:evidence-incomplete` needed a
-      disbursement paid for a member with no jurisdiction assessment
-      on file -- `disb-4` / `member-6` below), and
-    * a PHASE-GATE hold is produced alongside them (`:jurisdiction/
-      assess` submitted at phase 1, where that op is not yet
-      write-enabled).
+  Determinism: no timestamps, no wall-clock, no map-iteration order
+  leaks (every collection is explicitly sorted or comes from an
+  append-ordered vector). Two consecutive runs against the same seed
+  produce byte-identical output.
 
-  The phase-gate case is on the page deliberately: a phase hold and a
-  governor hold are BOTH written to the ledger as `:t :governor-hold`,
-  but a phase hold carries an EMPTY `:violations` vector. Counting
-  `:governor-hold` facts therefore overstates how many proposals the
-  compliance layer actually refused. `hard-holds` / `phase-holds`
-  below split them on `(seq :violations)` and the page shows them in
-  two separate tables.
+  Build-time invariant: `-main` REFUSES to write the page unless the
+  run produced at least one HARD governor hold that actually carries a
+  violation. The check is two-stage on purpose -- a rollout
+  phase-gating hold (`:phase-reason :phase-disabled`) is also written
+  as a `:governor-hold` fact but carries an EMPTY `:violations` vector,
+  so counting `:governor-hold` facts alone would be satisfied by a run
+  in which the compliance governor never refused anything.
 
-  Deterministic: no timestamps, no randomness, no wall-clock -- the
-  same seed produces byte-identical output across reruns (verify by
-  rendering twice into two scratch files and diffing).
-
-  Usage: `clojure -M:render-html [out-file]`
+  Usage: `clojure -M:dev:render-html [out-file]`
   (default `docs/samples/operator-console.html`)."
-  (:require [clojure.string :as str]
+  (:require [clojure.java.io :as io]
+            [clojure.string :as str]
             [jp-go-dds.skin]
             [langgraph.graph :as g]
             [pension.facts :as facts]
+            [pension.governor :as governor]
             [pension.operation :as op]
             [pension.phase :as phase]
             [pension.store :as store]))
 
-(def ^:private operator
-  "The licensed pension administrator this demo runs as. Phase 3 =
-  supervised auto (see `pension.phase`)."
-  {:actor-id "op-1" :actor-role :pension-administrator :phase 3})
+;; ----------------------------- the run -----------------------------
 
-(def ^:private trainee
-  "The SAME operator earlier in the rollout: phase 1 (assisted-intake)
-  only write-enables `:member/intake`, so anything else HOLDs on the
-  phase gate with no governor violation at all."
-  (assoc operator :phase 1))
+(def ^:private administrator
+  "The licensed pension administrator who resumes an interrupted run."
+  "administrator-tanaka")
 
-;; ----------------------------- driving the real actor -----------------------------
+(def ^:private actuation-officer
+  "A second named human. `:disbursement/pay` / `:payout/continue` are
+  the two real-world money-moving acts; this scenario routes them to a
+  different approver so the page can show WHICH human authorized WHICH
+  actuation (and, below, whether the store kept that fact)."
+  "administrator-yamada")
 
-(defn- approved-by
-  "The approver recorded by the actor's own `:request-approval` node in
-  this run's audit channel (`{:t :approval-granted :by ..}`), or nil.
-  Read per RUN -- never joined back on [op subject], which is not
-  unique here (`disb-1` is both paid and, later, refused a second
-  payment; `member-4` is screened and then continued)."
-  [state]
-  (some #(when (= :approval-granted (:t %)) (:by %)) (:audit state)))
+(defn- ctx [ph] {:actor-id "op-1" :actor-role :pension-administrator :phase ph})
 
 (defn- step!
-  "Runs ONE operation through the real graph. If the actor interrupts
-  for human approval (`interrupt-before #{:request-approval}`) and
-  `:approve?` is set, resumes it with a real approval payload -- the
-  same two-call handshake `pension.sim` uses. Returns the step record
-  the console renders from."
-  [actor {:keys [tid label request context approve?] :or {context operator}}]
-  (let [res (g/run* actor {:request request :context context} {:thread-id tid})
-        final (if (and approve? (= :interrupted (:status res)))
-                (g/run* actor {:approval {:status :approved :by (:actor-id context)}}
-                        {:thread-id tid :resume? true})
-                res)
-        state (:state final)]
-    {:tid tid
-     :label label
-     :op (:op request)
-     :subject (:subject request)
-     :phase (:phase context)
-     :interrupted? (= :interrupted (:status res))
-     :status (:status final)
-     :disposition (:disposition state)
-     :approved-by (approved-by state)
-     :violations (->> (:audit state)
-                      (filter #(= :governor-hold (:t %)))
-                      last
-                      :violations)
-     :phase-reason (->> (:audit state)
-                        (filter #(= :governor-hold (:t %)))
-                        last
-                        :phase-reason)}))
-
-(def ^:private scenario
-  "The operation sequence, as data. Order matters: `disb-1` must be
-  paid before the double-payment refusal can fire, and `disb-1` must
-  be paid before `disb-3` can exceed member-1's REMAINING entitlement."
-  [{:tid "t1" :label "会員記録の受付 (clean, no capital risk)"
-    :request {:op :member/intake :subject "member-1"
-              :patch {:id "member-1" :status :accruing}}}
-   {:tid "t2" :label "法域の給付要件アセスメント (human approves)" :approve? true
-    :request {:op :jurisdiction/assess :subject "member-1"}}
-   {:tid "t3" :label "給付金請求の受付 (vested member; filing moves no capital)"
-    :request {:op :disbursement/file :subject "disb-1" :member-id "member-1"
-              :disbursement-type :lump-sum :requested-amount 5000000}}
-   {:tid "t4" :label "給付金の支払い (ALWAYS escalates; human approves)" :approve? true
-    :request {:op :disbursement/pay :subject "disb-1"}}
-   {:tid "t5" :label "生存確認スクリーニング (clear; human approves)" :approve? true
-    :request {:op :proof-of-life/screen :subject "member-4"}}
-   {:tid "t6" :label "年金継続支払い (ALWAYS escalates; human approves)" :approve? true
-    :request {:op :payout/continue :subject "member-4"}}
-
-   ;; --- HARD governor holds: one per rule, none reaches a human ---
-   {:tid "t7" :label "未登録法域の要件を創作した提案"
-    :request {:op :jurisdiction/assess :subject "member-2" :no-spec? true}}
-   {:tid "t8" :label "権利未確定(unvested)会員の給付金請求"
-    :request {:op :disbursement/file :subject "disb-2" :member-id "member-3"
-              :disbursement-type :lump-sum :requested-amount 500000}}
-   {:tid "t9" :label "2件目の請求受付 (filing itself is clean)"
-    :request {:op :disbursement/file :subject "disb-3" :member-id "member-1"
-              :disbursement-type :lump-sum :requested-amount 10000000}}
-   {:tid "t10" :label "残存権利額を超える支払い提案"
-    :request {:op :disbursement/pay :subject "disb-3"}}
-   {:tid "t11" :label "アセスメント未実施会員への請求受付 (clean)"
-    :request {:op :disbursement/file :subject "disb-4" :member-id "member-6"
-              :disbursement-type :lump-sum :requested-amount 1000000}}
-   {:tid "t12" :label "必要書類が未充足のままの支払い提案"
-    :request {:op :disbursement/pay :subject "disb-4"}}
-   {:tid "t13" :label "生存確認に失敗した会員のスクリーニング"
-    :request {:op :proof-of-life/screen :subject "member-5"}}
-   {:tid "t14" :label "支払中でない会員の継続支払い提案"
-    :request {:op :payout/continue :subject "member-6"}}
-   {:tid "t15" :label "存在しない給付金請求の支払い提案"
-    :request {:op :disbursement/pay :subject "disb-999"}}
-   {:tid "t16" :label "支払い済み請求の二重支払い提案"
-    :request {:op :disbursement/pay :subject "disb-1"}}
-
-   ;; --- phase/rollout gate hold: NOT a compliance refusal ---
-   {:tid "t17" :label "phase 1 では書き込み対象外の操作" :context trainee
-    :request {:op :jurisdiction/assess :subject "member-4"}}])
+  "Runs ONE operation through the compiled actor and records what
+  actually happened. `:approve` is `:approved` / `:rejected` / nil
+  (leave the thread interrupted). Returns the run record."
+  [actor {:keys [tid phase request approve by note]}]
+  (let [c        (ctx phase)
+        r1       (g/run* actor {:request request :context c} {:thread-id tid})
+        paused?  (= :interrupted (:status r1))
+        r2       (when (and paused? approve)
+                   (g/run* actor {:approval {:status approve :by by}}
+                           {:thread-id tid :resume? true}))
+        final    (or r2 r1)
+        st       (:state final)
+        req-fact (last (filter #(= :approval-requested (:t %)) (:audit (:state r1))))]
+    {:tid          tid
+     :note         note
+     :phase        phase
+     :op           (:op request)
+     :subject      (:subject request)
+     :escalated?   paused?
+     :escalation-reason (:reason req-fact)
+     :approval     (when (and paused? approve) {:status approve :by by})
+     :disposition  (if (and paused? (nil? approve)) :awaiting-approval (:disposition st))
+     :effect       (get-in st [:record :effect])
+     :verdict      (:verdict st)
+     :audit        (:audit st)}))
 
 (defn run-demo!
-  "Runs `scenario` against a freshly seeded store through the real
-  OperationActor. Returns {:db .. :steps ..}; every field the console
-  renders is real governor/store output."
+  "Drives a freshly seeded store through a scenario that reaches EVERY
+  disposition this actor can produce and EVERY HARD rule this repo's
+  governor implements (all eight), plus the two non-governor refusal
+  kinds the page must not blur together with them:
+
+    * approved paths  -- a phase-1 member intake (escalates because
+                         phase 1 grants no auto rights at all), a JPN
+                         jurisdiction assessment, a proof-of-life
+                         screen, a real disbursement payment and a real
+                         payout continuation. The last two ALWAYS
+                         escalate (`:actuation/*`), at every phase.
+    * auto-commits    -- `:disbursement/file` at phase 3 (no capital
+                         moves when a claim is merely filed).
+    * HARD holds      -- `:no-spec-basis`, `:member-not-vested`,
+                         `:disbursement-exceeds-entitlement`,
+                         `:evidence-incomplete` (alone, and again
+                         stacked with the entitlement cap on one
+                         proposal), `:proof-of-life-failed`,
+                         `:member-not-in-payout`,
+                         `:disbursement-missing`, `:double-payment`.
+                         None of these ever reaches a human.
+    * phase-gate holds -- a write attempted at a phase that does not
+                         enable it. This is the rollout gate, NOT a
+                         compliance refusal: the fact carries an EMPTY
+                         `:violations` vector.
+    * human refusal   -- an escalated actuation the named approver
+                         REJECTED.
+
+  Returns `{:db .. :runs ..}`; every field the renderer reads comes
+  from one of those two."
   []
-  (let [db (store/seed-db)
-        actor (op/build db)]
-    {:db db
-     :steps (mapv #(step! actor %) scenario)}))
+  (let [db    (store/seed-db)
+        actor (op/build db)
+        runs  (mapv
+               (partial step! actor)
+               [;; --- rollout gate: writes not enabled at this phase ---
+                {:tid "p0-intake" :phase 0
+                 :note "phase 0 is read-only: no write op is enabled at all"
+                 :request {:op :member/intake :subject "member-6"
+                           :patch {:id "member-6" :status :accruing}}}
+                {:tid "p1-assess" :phase 1
+                 :note "phase 1 enables :member/intake only"
+                 :request {:op :jurisdiction/assess :subject "member-1"}}
 
-;; ----------------------------- derived views over the real run -----------------------------
+                ;; --- approved path, phase 1 (nothing is auto-eligible) ---
+                {:tid "p1-intake" :phase 1
+                 :note "governor-clean, but phase 1 grants no auto rights"
+                 :request {:op :member/intake :subject "member-1"
+                           :patch {:id "member-1" :status :accruing}}
+                 :approve :approved :by administrator}
 
-(defn- hard-holds
-  "Ledger facts the COMPLIANCE layer refused: a hold carrying at least
-  one governor violation. A phase-gate hold is also `:t :governor-hold`
-  but carries none, so it is excluded here by construction."
+                ;; --- approved path, phase 3 ---
+                {:tid "assess-m1" :phase 3
+                 :note "JPN has an official spec-basis in pension.facts"
+                 :request {:op :jurisdiction/assess :subject "member-1"}
+                 :approve :approved :by administrator}
+                {:tid "file-disb-1" :phase 3
+                 :note "filing moves no capital -> auto-commit at phase 3"
+                 :request {:op :disbursement/file :subject "disb-1" :member-id "member-1"
+                           :disbursement-type :lump-sum :requested-amount 5000000}}
+                {:tid "pay-disb-1" :phase 3
+                 :note "REAL money leaves the fund -> always a human"
+                 :request {:op :disbursement/pay :subject "disb-1"}
+                 :approve :approved :by actuation-officer}
+                {:tid "screen-m4" :phase 3
+                 :note "screening is never auto-eligible, at any phase"
+                 :request {:op :proof-of-life/screen :subject "member-4"}
+                 :approve :approved :by administrator}
+                {:tid "continue-m4" :phase 3
+                 :note "REAL periodic payments keep flowing -> always a human"
+                 :request {:op :payout/continue :subject "member-4"}
+                 :approve :approved :by actuation-officer}
+
+                ;; --- human refusal (NOT a governor refusal) ---
+                {:tid "assess-m6" :phase 3
+                 :request {:op :jurisdiction/assess :subject "member-6"}
+                 :approve :approved :by administrator}
+                {:tid "file-disb-6" :phase 3
+                 :request {:op :disbursement/file :subject "disb-6" :member-id "member-6"
+                           :disbursement-type :lump-sum :requested-amount 1000000}}
+                {:tid "pay-disb-6" :phase 3
+                 :note "governor clean; the named human declined"
+                 :request {:op :disbursement/pay :subject "disb-6"}
+                 :approve :rejected :by actuation-officer}
+
+                ;; --- HARD holds: never reach a human ---
+                {:tid "assess-m2" :phase 3
+                 :note "member-2's jurisdiction ATL is absent from pension.facts/catalog"
+                 :request {:op :jurisdiction/assess :subject "member-2"}}
+                {:tid "file-disb-2" :phase 3
+                 :note "member-3 has never vested"
+                 :request {:op :disbursement/file :subject "disb-2" :member-id "member-3"
+                           :disbursement-type :lump-sum :requested-amount 500000}}
+                {:tid "file-disb-3" :phase 3
+                 :note "filing itself is clean -- the cap is checked at payment"
+                 :request {:op :disbursement/file :subject "disb-3" :member-id "member-1"
+                           :disbursement-type :lump-sum :requested-amount 10000000}}
+                {:tid "pay-disb-3" :phase 3
+                 :note "member-1 already drew 5,000,000 of a 12,000,000 entitlement"
+                 :request {:op :disbursement/pay :subject "disb-3"}}
+                {:tid "file-disb-4" :phase 3
+                 :request {:op :disbursement/file :subject "disb-4" :member-id "member-4"
+                           :disbursement-type :lump-sum :requested-amount 1000000}}
+                {:tid "pay-disb-4" :phase 3
+                 :note "member-4's GBR evidence checklist was never assessed"
+                 :request {:op :disbursement/pay :subject "disb-4"}}
+                {:tid "file-disb-5" :phase 3
+                 :request {:op :disbursement/file :subject "disb-5" :member-id "member-2"
+                           :disbursement-type :lump-sum :requested-amount 5000000}}
+                {:tid "pay-disb-5" :phase 3
+                 :note "two independent HARD rules fire on ONE proposal"
+                 :request {:op :disbursement/pay :subject "disb-5"}}
+                {:tid "screen-m5" :phase 3
+                 :note "the screening op HARD-holds on its own finding"
+                 :request {:op :proof-of-life/screen :subject "member-5"}}
+                {:tid "continue-m6" :phase 3
+                 :note "member-6 is :accruing, never :in-payout"
+                 :request {:op :payout/continue :subject "member-6"}}
+                {:tid "pay-disb-999" :phase 3
+                 :note "no such disbursement was ever filed"
+                 :request {:op :disbursement/pay :subject "disb-999"}}
+                {:tid "pay-disb-1-again" :phase 3
+                 :note "disb-1 was paid earlier in this same run"
+                 :request {:op :disbursement/pay :subject "disb-1"}}])]
+    {:db db :runs runs}))
+
+;; --------------------------- derived views ---------------------------
+
+(defn hard-holds
+  "Compliance refusals: `:governor-hold` facts that actually carry a
+  violation. A rollout phase-gate hold is written with the same `:t`
+  but an EMPTY `:violations`, so it is excluded here (and reported in
+  its own table)."
   [ledger]
-  (filter #(and (= :governor-hold (:t %)) (seq (:violations %))) ledger))
+  (filterv #(and (= :governor-hold (:t %)) (seq (:violations %))) ledger))
 
-(defn- phase-holds
-  "Ledger facts the ROLLOUT PHASE gate held: `:t :governor-hold` with an
-  EMPTY violation list. The governor found nothing wrong; the op is
-  simply not write-enabled (or not auto-eligible) at that phase."
+(defn phase-gate-holds
+  "Rollout-gate refusals: a write attempted at a phase that does not
+  enable it. Distinct from a compliance refusal -- the governor found
+  nothing wrong."
   [ledger]
-  (filter #(and (= :governor-hold (:t %)) (empty? (:violations %))) ledger))
+  (filterv #(and (= :governor-hold (:t %)) (empty? (:violations %))) ledger))
+
+(defn- approval-rejections [ledger]
+  (filterv #(= :approval-rejected (:t %)) ledger))
 
 (defn- disbursement-ids
-  "Every disbursement id this run touched, in first-seen order, taken
-  from the run steps (not hand-listed) so a scenario edit can never
-  leave the table stale."
-  [steps]
-  (->> steps
-       (filter #(contains? #{:disbursement/file :disbursement/pay} (:op %)))
+  "Every disbursement id this run touched, in first-seen ledger order --
+  derived from the append-ordered ledger, never hand-listed."
+  [ledger]
+  (->> ledger
+       (filter #(#{:disbursement/file :disbursement/pay} (:op %)))
        (map :subject)
        distinct
        vec))
 
-(defn- approver-on
-  "Any approver key surviving on a committed register value. Registers
-  are written with keyword keys (assessment / proof-of-life payloads)
-  and the registry drafts with string keys, so both spellings are
-  probed -- this is a RENDER-TIME scan, so the page self-corrects if
-  the store later starts retaining the approver."
-  [v]
-  (when (map? v)
-    (or (:approved-by v) (get v "approved_by") (get v "approved-by"))))
+(defn- approver-in
+  "The approver attribution ACTUALLY present in a stored record, or nil.
+  Scans for any key -- keyword or string -- whose name mentions
+  `approv`, so this measures the store's real behaviour instead of
+  asserting a known defect: if the store is later changed to keep the
+  approver, this finds it with no edit here. Matches are sorted by key
+  name so the result never depends on map iteration order."
+  [m]
+  (when (map? m)
+    (->> m
+         (keep (fn [[k v]]
+                 (let [n (if (keyword? k) (name k) (str k))]
+                   (when (re-find #"(?i)approv" n) [n v]))))
+         (sort-by first)
+         first)))
 
-(defn- register-for
-  "The committed register a step produced, as [label value-or-values].
-  Used only to ask whether the approver survived onto the record --
-  matched by the step's OWN subject and effect, never by joining
-  [op subject] across the ledger."
-  [db {:keys [op subject]}]
-  (case op
-    :member/intake        ["member 記録" (store/member db subject)]
-    :jurisdiction/assess  ["assessment 台帳" (store/assessment-of db subject)]
-    :proof-of-life/screen ["proof-of-life 台帳" (store/proof-of-life-of db subject)]
-    :disbursement/file    ["disbursement 記録" (store/disbursement db subject)]
-    :disbursement/pay     ["disbursement-payment draft"
-                           (filter #(= subject (get % "disbursement_id"))
-                                   (store/payment-history db))]
-    :payout/continue      ["payout-continuation draft"
-                           (filter #(= subject (get % "member_id"))
-                                   (store/continuation-history db))]
-    [(str (name op) " (register 不明)") nil]))
+(defn- written-record
+  "The record an approved run actually wrote into the SSoT, looked up
+  through the Store protocol by the effect the run committed. Returns
+  `[label record]`, or `[label nil]` when the effect writes nowhere the
+  protocol can read back."
+  [db {:keys [effect subject]}]
+  (case effect
+    :member/upsert          ["pension.store/member" (store/member db subject)]
+    :assessment/set         ["pension.store/assessment-of" (store/assessment-of db subject)]
+    :proof-of-life/set      ["pension.store/proof-of-life-of" (store/proof-of-life-of db subject)]
+    :disbursement/filed     ["pension.store/disbursement" (store/disbursement db subject)]
+    :disbursement/mark-paid ["pension.store/payment-history"
+                             (let [hits (filterv #(= subject (get % "disbursement_id"))
+                                                 (store/payment-history db))]
+                               (when (= 1 (count hits)) (first hits)))]
+    :payout/mark-continued  ["pension.store/continuation-history"
+                             (let [hits (filterv #(= subject (get % "member_id"))
+                                                 (store/continuation-history db))]
+                               (when (= 1 (count hits)) (first hits)))]
+    [(str effect) nil]))
 
-(defn- attribution-rows
-  "One row per step that a human actually approved in this run, with
-  the approver MEASURED from the run's audit channel and the retention
-  MEASURED from the committed register."
-  [db steps]
-  (for [s steps
-        :when (:approved-by s)
-        :let [[label value] (register-for db s)
-              values (if (sequential? value) value [value])
-              retained (some approver-on values)]]
-    (assoc s :register label :retained retained :register-count (count (remove nil? values)))))
+(defn attribution-audit
+  "MEASURED approver attribution, one row per approved run: who the
+  human was (from the run + the `:approval-granted` audit fact), where
+  the commit landed, and whether that stored record actually kept the
+  approver. Nothing here is assumed about the store."
+  [db runs]
+  (for [{:keys [op subject effect approval audit] :as r} runs
+        :when (= :approved (:status approval))
+        :let [granted (last (filter #(= :approval-granted (:t %)) audit))
+              [where rec] (written-record db r)
+              found (approver-in rec)]]
+    {:op op :subject subject :effect effect
+     :approver-in-run (:by approval)
+     :approver-in-ledger (:by granted)
+     :where where
+     :record-present? (some? rec)
+     :approver-key (first found)
+     :approver-value (second found)}))
 
-;; ----------------------------- rendering -----------------------------
+;; ----------------------------- formatting -----------------------------
 
 (defn- esc [v]
   (-> (str v)
       (str/replace "&" "&amp;")
       (str/replace "<" "&lt;")
-      (str/replace ">" "&gt;")))
+      (str/replace ">" "&gt;")
+      (str/replace "\"" "&quot;")))
 
-(defn- nm
-  "Keyword -> its printed name WITHOUT the leading colon but WITH the
-  namespace. `clojure.core/name` is wrong here: it renders
-  `:disbursement/pay` as \"pay\" and `:disbursement/file` as \"file\",
-  dropping exactly the qualifier that says which register the op
-  writes."
-  [v]
-  (if (keyword? v) (subs (str v) 1) (str v)))
+(defn- group3 [s]
+  (let [neg?  (str/starts-with? s "-")
+        s     (if neg? (subs s 1) s)
+        [i f] (str/split s #"\." 2)
+        gi    (->> (reverse i)
+                   (partition-all 3)
+                   (map #(apply str (reverse %)))
+                   reverse
+                   (str/join ","))]
+    (str (when neg? "-") gi (when f (str "." f)))))
+
+(defn- num* [n]
+  (cond
+    (nil? n) "—"
+    (not (number? n)) (str n)
+    (== (double n) (Math/floor (double n))) (group3 (str (long n)))
+    :else (group3 (str n))))
+
+(defn- kw* [k] (if (keyword? k) (name k) (str k)))
+
+(defn- code [v] (str "<code>" (esc v) "</code>"))
 
 (defn- row [& cells]
-  (str "        <tr>" (str/join (map #(str "<td>" % "</td>") cells)) "</tr>"))
+  (str "        <tr>" (apply str (map #(str "<td>" % "</td>") cells)) "</tr>"))
 
-(defn- money
-  "Thousands-grouped integer. Written out by hand rather than via
-  `format \"%,d\"` so the output cannot vary with the JVM's default
-  locale -- this page must be byte-identical across reruns and
-  machines."
-  [n]
-  (when n
-    (let [digits (str (long n))
-          grouped (->> (reverse digits)
-                       (partition-all 3)
-                       (map (comp str/join reverse))
-                       reverse
-                       (str/join ","))]
-      grouped)))
-
-(defn- member-row [{:keys [id name employer jurisdiction plan-type accrued-benefit
-                           disbursed-to-date vested? status proof-of-life-hit?]}]
-  (row (str "<code>" (esc id) "</code>")
-       (esc name)
-       (esc employer)
-       (esc jurisdiction)
-       (str "<code>" (esc (nm plan-type)) "</code>")
-       (esc (money accrued-benefit))
-       (esc (money disbursed-to-date))
-       (if vested?
-         "<span class=\"ok\">vested</span>"
-         "<span class=\"warn\">not vested</span>")
-       (str "<code>" (esc (nm status)) "</code>")
-       (if proof-of-life-hit?
-         "<span class=\"critical\">failed</span>"
-         "<span class=\"ok\">clear</span>")))
-
-(defn- disbursement-row [db id]
-  (let [d (store/disbursement db id)
-        m (when d (store/member db (:member-id d)))]
-    (row (str "<code>" (esc id) "</code>")
-         (if d (str "<code>" (esc (:member-id d)) "</code>") "<span class=\"muted\">—</span>")
-         (if m (esc (:name m)) "<span class=\"muted\">—</span>")
-         (if d (str "<code>" (esc (nm (:disbursement-type d))) "</code>") "<span class=\"muted\">—</span>")
-         (if d (esc (money (:requested-amount d))) "<span class=\"muted\">—</span>")
-         (cond
-           (nil? d) "<span class=\"critical\">not on file</span>"
-           (= :paid (:status d)) "<span class=\"ok\">paid</span>"
-           :else "<span class=\"warn\">filed</span>")
-         (if (:disbursement-number d)
-           (str "<code>" (esc (:disbursement-number d)) "</code>")
-           "<span class=\"muted\">—</span>"))))
-
-(defn- disposition-cell [{:keys [disposition violations phase-reason]}]
-  (cond
-    (and (= :hold disposition) (seq violations))
-    "<span class=\"critical\">HARD hold</span>"
-    (= :hold disposition)
-    (str "<span class=\"warn\">phase hold · " (esc (nm (or phase-reason :phase-gate))) "</span>")
-    (= :commit disposition) "<span class=\"ok\">committed</span>"
-    (= :escalate disposition) "<span class=\"warn\">awaiting approval</span>"
-    :else "<span class=\"muted\">—</span>"))
-
-(defn- step-row [{:keys [tid label op subject phase interrupted? approved-by] :as s}]
-  (row (str "<code>" (esc tid) "</code>")
-       (esc phase)
-       (str "<code>" (esc (nm op)) "</code>")
-       (str "<code>" (esc subject) "</code>")
-       (esc label)
-       (if interrupted?
-         "<span class=\"warn\">human gate</span>"
-         "<span class=\"muted\">—</span>")
-       (disposition-cell s)
-       (if approved-by
-         (str "<code>" (esc approved-by) "</code>")
-         "<span class=\"muted\">—</span>")))
-
-(defn- hard-hold-row [{:keys [op subject violations confidence]}]
-  (let [v (first violations)]
-    (row (str "<code>" (esc (nm op)) "</code>")
-         (str "<code>" (esc subject) "</code>")
-         (str "<span class=\"critical\">" (esc (nm (:rule v))) "</span>")
-         (esc (:detail v))
-         (esc confidence))))
-
-(defn- phase-hold-row [{:keys [op subject phase phase-reason violations]}]
-  (row (str "<code>" (esc (nm op)) "</code>")
-       (str "<code>" (esc subject) "</code>")
-       (esc phase)
-       (str "<code>" (esc (nm (or phase-reason :unknown))) "</code>")
-       (str (count violations) " <span class=\"muted\">(governor found nothing)</span>")))
-
-(defn- ledger-row [{:keys [t op subject disposition basis]}]
-  (row (str "<code>" (esc (nm t)) "</code>")
-       (str "<code>" (esc (nm (or op :n-a))) "</code>")
-       (str "<code>" (esc subject) "</code>")
-       (esc (nm (or disposition "")))
-       (esc (str/join " / " (map nm (or basis []))))))
-
-(defn- payment-row [r]
-  (row (str "<code>" (esc (get r "record_id")) "</code>")
-       (str "<code>" (esc (get r "member_id")) "</code>")
-       (str "<code>" (esc (get r "disbursement_id")) "</code>")
-       (str "<code>" (esc (get r "disbursement_type")) "</code>")
-       (esc (money (get r "disbursed_amount")))
-       (esc (get r "jurisdiction"))
-       (if (approver-on r)
-         (str "<code>" (esc (approver-on r)) "</code>")
-         "<span class=\"muted\">not retained</span>")))
-
-(defn- continuation-row [r]
-  (row (str "<code>" (esc (get r "record_id")) "</code>")
-       (str "<code>" (esc (get r "member_id")) "</code>")
-       (esc (get r "jurisdiction"))
-       (if (approver-on r)
-         (str "<code>" (esc (approver-on r)) "</code>")
-         "<span class=\"muted\">not retained</span>")))
-
-(defn- attribution-row [{:keys [op subject approved-by register retained register-count]}]
-  (row (str "<code>" (esc (nm op)) "</code>")
-       (str "<code>" (esc subject) "</code>")
-       (str "<code>" (esc approved-by) "</code>")
-       (esc register)
-       (esc register-count)
-       (if retained
-         (str "<span class=\"ok\">retained · " (esc retained) "</span>")
-         "<span class=\"warn\">audit only — not retained on record</span>")))
-
-(defn- jurisdiction-row [[iso3 {:keys [name owner-authority legal-basis provenance required-evidence]}]]
-  (row (str "<code>" (esc iso3) "</code>")
-       (esc name)
-       (esc owner-authority)
-       (esc legal-basis)
-       (esc (count required-evidence))
-       (str "<code>" (esc provenance) "</code>")))
-
-(defn- phase-row [[n {:keys [label writes auto]}]]
-  (row (esc n)
-       (str "<code>" (esc label) "</code>")
-       (if (seq writes)
-         (str/join " " (map #(str "<code>" (esc (nm %)) "</code>") (sort (map nm writes))))
-         "<span class=\"muted\">none</span>")
-       (if (seq auto)
-         (str/join " " (map #(str "<code>" (esc (nm %)) "</code>") (sort (map nm auto))))
-         "<span class=\"muted\">none</span>")))
-
-(defn- table [headers rows]
+(defn- tbl [headers rows]
   (str "    <table>\n"
-       "      <thead><tr>" (str/join (map #(str "<th>" % "</th>") headers)) "</tr></thead>\n"
+       "      <thead><tr>" (apply str (map #(str "<th>" % "</th>") headers)) "</tr></thead>\n"
        "      <tbody>\n"
-       (str/join "\n" rows) "\n"
+       (if (seq rows)
+         (str (str/join "\n" rows) "\n")
+         (str "        <tr><td colspan=\"" (count headers)
+              "\" class=\"muted\">no rows produced by this run</td></tr>\n"))
        "      </tbody>\n"
        "    </table>\n"))
 
-(defn- section [title lead body]
+(defn- section [title lede body]
   (str "  <section class=\"card\">\n"
        "    <h2>" title "</h2>\n"
-       "    <p class=\"muted\">" lead "</p>\n"
+       (when lede (str "    <p class=\"muted\">" lede "</p>\n"))
        body
        "  </section>\n"))
 
+(defn- yes-no [b] (if b "<span class=\"ok\">yes</span>" "<span class=\"muted\">no</span>"))
+
+;; ----------------------------- sections -----------------------------
+
+(defn- member-rows [db ledger]
+  (for [m (store/all-members db)
+        :let [last-fact (last (filter #(= (:id m) (:subject %)) ledger))]]
+    (row (code (:id m)) (esc (:name m)) (esc (:employer m))
+         (esc (kw* (:plan-type m)))
+         (str "<span class=\"num\">" (num* (:accrued-benefit m)) "</span>")
+         (str "<span class=\"num\">" (num* (:disbursed-to-date m)) "</span>")
+         (if (:vested? m) "<span class=\"ok\">vested</span>"
+             "<span class=\"critical\">not vested</span>")
+         (esc (kw* (:status m)))
+         (code (:jurisdiction m))
+         (cond
+           (nil? last-fact) "<span class=\"muted\">no ledger activity</span>"
+           (= :committed (:t last-fact)) "<span class=\"ok\">committed</span>"
+           (= :approval-rejected (:t last-fact)) "<span class=\"warn\">human declined</span>"
+           (seq (:violations last-fact))
+           (str "<span class=\"critical\">HARD hold · "
+                (esc (kw* (:rule (first (:violations last-fact))))) "</span>")
+           :else "<span class=\"warn\">phase-gate hold</span>"))))
+
+(defn- coverage-rows [db]
+  (let [in-play (sort (distinct (map :jurisdiction (store/all-members db))))]
+    (for [iso3 in-play
+          :let [sb (facts/spec-basis iso3)]]
+      (row (code iso3)
+           (if sb (esc (:name sb)) "<span class=\"critical\">not in catalog</span>")
+           (if sb (esc (:owner-authority sb)) "<span class=\"muted\">—</span>")
+           (if sb (esc (:legal-basis sb)) "<span class=\"muted\">—</span>")
+           (if sb (str "<span class=\"num\">" (count (:required-evidence sb)) "</span>")
+               "<span class=\"muted\">—</span>")
+           (if sb
+             (str "<a href=\"" (esc (:provenance sb)) "\">" (esc (:provenance sb)) "</a>")
+             "<span class=\"critical\">no official source — the governor HARD-holds any proposal citing one</span>")))))
+
+(defn- gate-rows [runs]
+  (let [stakes (into {} (for [{:keys [op verdict]} runs
+                              :when (some? (:high-stakes? verdict))]
+                          [op (:high-stakes? verdict)]))
+        ordered [:member/intake :jurisdiction/assess :proof-of-life/screen
+                 :disbursement/file :disbursement/pay :payout/continue]]
+    (for [o ordered
+          :let [writes (filterv #(contains? (:writes (get phase/phases %)) o) (sort (keys phase/phases)))
+                autos  (filterv #(contains? (:auto (get phase/phases %)) o) (sort (keys phase/phases)))]]
+      (row (code o)
+           (if (seq writes) (esc (str/join ", " (map #(str "phase " %) writes)))
+               "<span class=\"muted\">none</span>")
+           (if (seq autos)
+             (str "<span class=\"ok\">" (esc (str/join ", " (map #(str "phase " %) autos))) "</span>")
+             "<span class=\"warn\">never — human approval at every phase</span>")
+           (case (get stakes o)
+             true  "<span class=\"critical\">yes — actuation</span>"
+             false "<span class=\"muted\">no</span>"
+             "<span class=\"muted\">not exercised by this run</span>")))))
+
+(defn- run-rows [runs]
+  (for [{:keys [tid phase op subject disposition escalated? escalation-reason approval note]} runs]
+    (row (code tid)
+         (str "<span class=\"num\">" phase "</span>")
+         (code op)
+         (code subject)
+         (case disposition
+           :commit   "<span class=\"ok\">commit</span>"
+           :hold     "<span class=\"critical\">hold</span>"
+           :awaiting-approval "<span class=\"warn\">awaiting approval</span>"
+           (str "<span class=\"muted\">" (esc (kw* disposition)) "</span>"))
+         (cond
+           (not escalated?) "<span class=\"muted\">not escalated</span>"
+           (nil? escalation-reason) "<span class=\"warn\">escalated</span>"
+           :else (str "<span class=\"warn\">" (esc (kw* escalation-reason)) "</span>"))
+         (if approval
+           (str (if (= :approved (:status approval))
+                  "<span class=\"ok\">approved</span>" "<span class=\"critical\">rejected</span>")
+                " by " (code (:by approval)))
+           "<span class=\"muted\">—</span>")
+         (if note (esc note) "<span class=\"muted\">—</span>"))))
+
+(defn- hard-hold-rows [ledger]
+  (apply concat
+         (for [f (hard-holds ledger)]
+           (for [v (:violations f)]
+             (row (code (:op f)) (code (:subject f))
+                  (str "<span class=\"critical\">" (esc (kw* (:rule v))) "</span>")
+                  (esc (:detail v))
+                  (str "<span class=\"num\">" (esc (:confidence f)) "</span>")
+                  "<span class=\"critical\">never reaches a human</span>")))))
+
+(defn- phase-hold-rows [ledger]
+  (for [f (phase-gate-holds ledger)]
+    (row (code (:op f)) (code (:subject f))
+         (str "<span class=\"num\">" (esc (:phase f)) "</span>")
+         (str "<span class=\"warn\">" (esc (kw* (:phase-reason f))) "</span>")
+         (esc (str "writes enabled at this phase: "
+                   (let [w (:writes (get phase/phases (:phase f)))]
+                     (if (seq w) (str/join ", " (sort (map kw* w))) "none"))))
+         "<span class=\"muted\">empty — the compliance governor found nothing wrong</span>")))
+
+(defn- rejection-rows [ledger runs]
+  (for [f (approval-rejections ledger)
+        :let [r (last (filter #(and (= (:op f) (:op %)) (= (:subject f) (:subject %))
+                                    (= :rejected (get-in % [:approval :status])))
+                              runs))]]
+    (row (code (:op f)) (code (:subject f))
+         (if r (code (get-in r [:approval :by]))
+             "<span class=\"muted\">approver not recoverable from this run</span>")
+         (esc (str/join ", " (map (comp kw* :rule) (:violations f))))
+         "<span class=\"warn\">reached a human, who declined — NOT a governor refusal</span>")))
+
+(defn- disbursement-rows [db ledger]
+  (for [id (disbursement-ids ledger)
+        :let [d (store/disbursement db id)]]
+    (if d
+      (row (code id) (code (:member-id d)) (esc (kw* (:disbursement-type d)))
+           (str "<span class=\"num\">" (num* (:requested-amount d)) "</span>")
+           (if (= :paid (:status d))
+             "<span class=\"ok\">paid</span>"
+             (str "<span class=\"warn\">" (esc (kw* (:status d))) "</span>"))
+           (if (:disbursement-number d) (code (:disbursement-number d))
+               "<span class=\"muted\">—</span>"))
+      (row (code id) "<span class=\"muted\">—</span>" "<span class=\"muted\">—</span>"
+           "<span class=\"muted\">—</span>"
+           "<span class=\"critical\">not on file</span>"
+           "<span class=\"muted\">—</span>"))))
+
+(defn- assessment-rows [db]
+  (for [m (store/all-members db)
+        :let [a (store/assessment-of db (:id m))]
+        :when a]
+    (row (code (:id m)) (code (:jurisdiction a))
+         (str "<span class=\"num\">" (count (:checklist a)) "</span>")
+         (esc (str/join " / " (:checklist a)))
+         (if (:spec-basis a)
+           (str "<a href=\"" (esc (:spec-basis a)) "\">" (esc (:spec-basis a)) "</a>")
+           "<span class=\"critical\">none</span>"))))
+
+(defn- proof-of-life-rows [db]
+  (for [m (store/all-members db)
+        :let [p (store/proof-of-life-of db (:id m))]
+        :when p]
+    (row (code (:id m)) (esc (:name m))
+         (case (:verdict p)
+           :clear  "<span class=\"ok\">clear</span>"
+           :failed "<span class=\"critical\">failed</span>"
+           (str "<span class=\"warn\">" (esc (kw* (:verdict p))) "</span>")))))
+
+(defn- payment-rows [db]
+  (for [r (store/payment-history db)]
+    (row (code (get r "record_id")) (esc (get r "kind"))
+         (code (get r "member_id")) (code (get r "disbursement_id"))
+         (esc (get r "disbursement_type"))
+         (str "<span class=\"num\">" (num* (get r "disbursed_amount")) "</span>")
+         (code (get r "jurisdiction"))
+         (yes-no (get r "immutable")))))
+
+(defn- continuation-rows [db]
+  (for [r (store/continuation-history db)]
+    (row (code (get r "record_id")) (esc (get r "kind"))
+         (code (get r "member_id")) (code (get r "jurisdiction"))
+         (yes-no (get r "immutable")))))
+
+(defn- attribution-rows [db runs]
+  (for [{:keys [op subject effect approver-in-run approver-in-ledger where
+                record-present? approver-key approver-value]}
+        (attribution-audit db runs)]
+    (row (code op) (code subject) (code effect)
+         (code approver-in-run)
+         (if approver-in-ledger (code approver-in-ledger)
+             "<span class=\"critical\">absent from the audit fact too</span>")
+         (code where)
+         (cond
+           (not record-present?)
+           "<span class=\"warn\">record not uniquely readable back through the Store protocol</span>"
+           approver-key
+           (str "<span class=\"ok\">kept · " (code approver-key) " = " (code approver-value) "</span>")
+           :else
+           "<span class=\"critical\">DROPPED — the record carries no approver key</span>"))))
+
+(defn- ledger-rows [ledger]
+  (map-indexed
+   (fn [i {:keys [t op subject disposition basis violations phase-reason confidence summary]}]
+     (row (str "<span class=\"num\">" i "</span>")
+          (code (kw* t))
+          (code (kw* (or op :n-a)))
+          (code subject)
+          (esc (kw* (or disposition "")))
+          (cond
+            (seq violations) (esc (str/join ", " (map (comp kw* :rule) violations)))
+            phase-reason (esc (kw* phase-reason))
+            (seq basis) (esc (str/join ", " (map #(if (keyword? %) (name %) (str %)) basis)))
+            :else "<span class=\"muted\">—</span>")
+          (str "<span class=\"num\">" (if (some? confidence) (esc confidence) "—") "</span>")
+          (if summary (esc summary) "<span class=\"muted\">—</span>")))
+   ledger))
+
+;; ----------------------------- document -----------------------------
+
 (defn render
-  "Renders the whole operator console from a `run-demo!` result. Every
-  table below is a projection of the store/ledger that run produced."
-  [{:keys [db steps]}]
-  (let [ledger (vec (store/ledger db))
-        hard (vec (hard-holds ledger))
-        phased (vec (phase-holds ledger))
-        payments (vec (store/payment-history db))
-        continuations (vec (store/continuation-history db))
-        attributions (vec (attribution-rows db steps))
-        retained? (some :retained attributions)]
+  "Renders the whole operator console from a completed `run-demo!`
+  result. Reads only `db` (through the Store protocol) and `runs`."
+  [{:keys [db runs]}]
+  (let [ledger   (vec (store/ledger db))
+        hard     (hard-holds ledger)
+        rules    (->> hard (mapcat :violations) (map :rule) distinct sort vec)
+        cov      (facts/coverage (sort (distinct (map :jurisdiction (store/all-members db)))))
+        attrib   (attribution-audit db runs)
+        kept     (count (filter :approver-key attrib))
+        dropped  (- (count attrib) kept)]
     (str
      "<!doctype html>\n"
-     "<html lang=\"ja\"><head><meta charset=\"utf-8\">"
-     "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
-     "<title>cloud-itonami-isic-6530 · pension funding — Operator Console</title><style>"
-     (jp-go-dds.skin/dds+skin)
-     "</style></head><body>\n"
+     "<html lang=\"en\"><head><meta charset=\"utf-8\">\n"
+     "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
+     "<title>cloud-itonami-isic-6530 · pension funding — Operator Console</title>\n"
+     "<style>\n" (jp-go-dds.skin/dds+skin) "\n</style>\n"
+     "</head><body>\n"
      "<header class=\"bar\">\n"
      "  <h1>Pension funding (ISIC 6530) — Operator Console</h1>\n"
-     "  <span class=\"badge\">read-only sample · governor-gated · disbursement payment / payout continuation are ALWAYS human-approved</span>\n"
+     "  <span class=\"badge\">read-only sample · governor-gated · disbursement payment &amp; payout continuation always human-approved</span>\n"
      "</header>\n"
+     "<p class=\"subtitle\">Every table below is generated at build time by <code>pension.render-html</code> "
+     "(<code>clojure -M:dev:render-html</code>) from ONE real run of the actor stack "
+     "<code>pension.operation</code> &rarr; <code>pension.governor</code> &rarr; <code>pension.phase</code> "
+     "&rarr; <code>pension.store</code>, driven through <code>langgraph.graph/run*</code>. "
+     "No number, id, member name, violation reason or record id on this page was typed by hand; "
+     "where a value cannot be read back out of the store, the page says so instead of inventing one. "
+     "The page contains no timestamps, so two consecutive builds against the same seed are byte-identical.</p>\n"
      "<main>\n"
 
-     (section "会員台帳 (SSoT)"
-              (str "Build-time snapshot generated from <code>pension.store</code> by "
-                   "<code>pension.render-html</code> (<code>clojure -M:render-html</code>). "
-                   "Balances are the store's own values AFTER this run — <code>member-1</code>'s "
-                   "<code>disbursed-to-date</code> was advanced by the disbursement the human approved, "
-                   "which is what makes the later over-entitlement refusal fire.")
-              (table ["Member" "氏名" "Employer" "法域" "Plan" "Accrued" "Disbursed" "Vesting" "Status" "Proof-of-life"]
-                     (map member-row (store/all-members db))))
+     (section "Run summary" nil
+              (tbl ["Measure" "Value"]
+                   [(row "operations driven through the actor"
+                         (str "<span class=\"num\">" (count runs) "</span>"))
+                    (row "audit-ledger facts written"
+                         (str "<span class=\"num\">" (count ledger) "</span>"))
+                    (row "HARD governor holds (carry a violation, un-overridable)"
+                         (str "<span class=\"critical num\">" (count hard) "</span>"))
+                    (row "distinct HARD rules exercised"
+                         (str "<span class=\"num\">" (count rules) "</span> · "
+                              (str/join ", " (map #(code (kw* %)) rules))))
+                    (row "rollout phase-gate holds (empty violations — NOT a compliance refusal)"
+                         (str "<span class=\"warn num\">" (count (phase-gate-holds ledger)) "</span>"))
+                    (row "escalations declined by the named human"
+                         (str "<span class=\"warn num\">" (count (approval-rejections ledger)) "</span>"))
+                    (row "draft disbursement-payment records"
+                         (str "<span class=\"num\">" (count (store/payment-history db)) "</span>"))
+                    (row "draft payout-continuation records"
+                         (str "<span class=\"num\">" (count (store/continuation-history db)) "</span>"))
+                    (row "approved commits whose stored record kept the approver"
+                         (str "<span class=\"num\">" kept " of " (count attrib) "</span>"
+                              (when (pos? dropped)
+                                (str " · <span class=\"critical\">" dropped
+                                     " dropped (measured below, not assumed)</span>"))))]))
 
-     (section "給付金請求 (disbursements touched by this run)"
-              (str "Ids are taken from the run's own steps and looked up through the Store protocol; "
-                   "<code>disb-999</code> is deliberately absent from the register — the governor refuses "
-                   "to pay a disbursement that does not exist.")
-              (table ["Disbursement" "Member" "氏名" "Type" "Requested" "Status" "支払番号"]
-                     (map (partial disbursement-row db) (disbursement-ids steps))))
+     (section "Members (SSoT)"
+              "Read back through <code>pension.store/all-members</code> AFTER the run — <code>disbursed-to-date</code> already reflects the disbursement paid during this run."
+              (tbl ["Member" "Name" "Employer" "Plan" "Accrued benefit" "Disbursed to date"
+                    "Vesting" "Status" "Jurisdiction" "Last ledger fact"]
+                   (member-rows db ledger)))
 
-     (section "オペレーション実行 (this run, in order)"
-              (str "Each row is one <code>langgraph.graph/run*</code> through the real OperationActor "
-                   "(intake → advise → govern → decide → commit | hold | approval). "
-                   "&ldquo;human gate&rdquo; means the graph actually interrupted at "
-                   "<code>:request-approval</code> and waited for a person.")
-              (table ["Thread" "Phase" "Op" "Subject" "Scenario" "Human gate" "Disposition" "承認者"]
-                     (map step-row steps)))
+     (section "Jurisdiction spec-basis coverage (honest)"
+              (str "<code>pension.facts/coverage</code> over the jurisdictions the seeded members actually live in: "
+                   "<strong>" (:covered cov) " of " (:requested cov) "</strong> covered"
+                   (when (seq (:missing-jurisdictions cov))
+                     (str ", missing " (str/join ", " (map code (:missing-jurisdictions cov)))))
+                   ". A jurisdiction absent from the catalog has NO spec-basis — the advisor must not invent one, and the governor HARD-holds if it tries.")
+              (tbl ["ISO3" "Jurisdiction" "Owner authority" "Legal basis" "Required evidence items" "Official source"]
+                   (coverage-rows db)))
 
-     (section (str "Pension Governor が拒否した提案 — HARD holds (" (count hard) ")")
-              (str "Un-overridable compliance refusals: a human approver CANNOT approve past these, and none "
-                   "of them ever reached a human. Every one of <code>pension.governor</code>'s eight HARD "
-                   "rules is represented. Details are the governor's own violation text.")
-              (table ["Op" "Subject" "Rule" "Detail (governor 出力)" "LLM confidence"]
-                     (map hard-hold-row hard)))
+     (section "Op gate — rollout phase table &times; actuation"
+              "Derived from <code>pension.phase/phases</code> and from the <code>:high-stakes?</code> flag the governor actually returned in this run. <code>:disbursement/pay</code> and <code>:payout/continue</code> are absent from every phase's <code>:auto</code> set — a permanent structural fact, not a rollout milestone still to come."
+              (tbl ["Op" "May write at" "May auto-commit at" "High-stakes actuation?"]
+                   (gate-rows runs)))
 
-     (section (str "Rollout phase gate が止めた提案 — NOT compliance refusals (" (count phased) ")")
-              (str "These are written to the ledger with the SAME <code>:t :governor-hold</code> fact type as the "
-                   "table above, but with an <strong>empty</strong> <code>:violations</code> vector — the governor "
-                   "found nothing wrong; the op is simply not write-enabled at that rollout phase. "
-                   "Counting <code>:governor-hold</code> facts alone would overstate compliance refusals by "
-                   (count phased) ", so this console splits them.")
-              (table ["Op" "Subject" "Phase" "Reason" "Violations"]
-                     (map phase-hold-row phased)))
+     (section "Operations driven in this run"
+              "One row per <code>langgraph.graph/run*</code> invocation, in execution order."
+              (tbl ["Thread" "Phase" "Op" "Subject" "Disposition" "Escalation reason" "Human decision" "Why this case is here"]
+                   (run-rows runs)))
 
-     (section "Rollout phase table (<code>pension.phase</code>)"
-              (str "Read straight out of <code>pension.phase/phases</code>. Note the structural invariant: "
-                   "<code>:disbursement/pay</code> and <code>:payout/continue</code> appear in NO phase's auto "
-                   "column, including phase 3 — paying a real benefit and continuing a real payout stream are "
-                   "permanently a human pension administrator's call, enforced independently by the governor's "
-                   "actuation gate.")
-              (table ["Phase" "Label" "Writes enabled" "Auto-commit when clean"]
-                     (map phase-row (sort-by key phase/phases))))
+     (section "HARD governor holds — compliance refusals"
+              "Un-overridable. A human approver cannot approve past any of these; the run never reaches the approval node at all. One row per violation, so a proposal that trips two rules appears twice."
+              (tbl ["Op" "Subject" "Rule" "Detail (as emitted by pension.governor)" "Advisor confidence" "Override"]
+                   (hard-hold-rows ledger)))
 
-     (section "監査台帳 (append-only, this run)"
-              "Every decision fact the run appended — proposals that committed, and every refusal."
-              (table ["Fact" "Op" "Subject" "Disposition" "Basis"]
-                     (map ledger-row ledger)))
+     (section "Rollout phase-gate holds — NOT compliance refusals"
+              "A different thing entirely: the compliance governor found nothing wrong, but the rollout phase does not enable that write yet. These facts share the <code>:governor-hold</code> tag and carry an <strong>empty</strong> <code>:violations</code> vector, which is why the build-time invariant in <code>-main</code> counts violations rather than holds."
+              (tbl ["Op" "Subject" "Phase" "Reason" "Writes enabled at that phase" "Violations"]
+                   (phase-hold-rows ledger)))
 
-     (section "給付金支払いドラフト (pension.registry)"
-              (str "Unsigned draft records the fund would keep. Reference numbers are the registry's own "
-                   "jurisdiction-scoped sequence, not invented here. The 承認者 column is scanned off the "
-                   "record itself at render time.")
-              (table ["Record" "Member" "Disbursement" "Type" "Amount" "法域" "承認者"]
-                     (map payment-row payments)))
+     (section "Escalations the human declined"
+              "The third refusal kind. The governor cleared the proposal, the rollout gate allowed it, a named administrator looked at it and said no."
+              (tbl ["Op" "Subject" "Declined by" "Recorded rule" "Kind"]
+                   (rejection-rows ledger runs)))
 
-     (section "継続支払いドラフト (pension.registry)"
-              "Recurring payout-continuation authorizations — one per proof-of-life cycle, by design."
-              (table ["Record" "Member" "法域" "承認者"]
-                     (map continuation-row continuations)))
+     (section "Disbursement register"
+              "Every disbursement id this run touched, in first-seen ledger order. <code>disb-999</code> is on the page because a payment was proposed against it and HARD-held — it is genuinely absent from the store."
+              (tbl ["Disbursement" "Member" "Type" "Requested amount" "Status" "Disbursement number"]
+                   (disbursement-rows db ledger)))
 
-     (section "人による承認の帰属 (measured at render time)"
-              (str "The approver is read from THIS run's audit channel (<code>:t :approval-granted</code>), per "
-                   "thread — never joined on [op, subject], which is not unique here (<code>disb-1</code> is "
-                   "paid and later refused a second payment; <code>member-4</code> is screened and then "
-                   "continued). The retention column re-scans the committed register for an approver key, so "
-                   "this page self-corrects if the store later starts retaining it. "
-                   (if retained?
-                     "Measured result: at least one register DOES retain the approver."
-                     "Measured result: NO register retains the approver.")
-                   " Where a register does not retain it, the attribution is audit-only.")
-              (table ["Op" "Subject" "承認者 (audit)" "Committed register" "Records" "Retained on record?"]
-                     (map attribution-row attributions)))
+     (section "Committed jurisdiction assessments"
+              "<code>pension.store/assessment-of</code> per member. Members with no row were never assessed — which is exactly why a payment against <code>disb-4</code> HARD-held on <code>:evidence-incomplete</code>."
+              (tbl ["Member" "Jurisdiction" "Checklist items" "Required evidence" "Cited official source"]
+                   (assessment-rows db)))
 
-     (section "法域 spec-basis カタログ (pension.facts)"
-              (str "The catalog the governor checks every jurisdiction proposal against. Coverage is reported "
-                   "honestly: " (count facts/catalog) " jurisdictions are seeded with an official source — this "
-                   "is a starting catalog, not a survey of all ~194 jurisdictions. A jurisdiction absent here "
-                   "(e.g. <code>ATL</code>, member-2's) has NO spec-basis, and the governor HARD-holds any "
-                   "proposal that invents one.")
-              (table ["ISO3" "Name" "Owner authority" "Legal basis" "必要書類" "Provenance"]
-                     (map jurisdiction-row (sort-by key facts/catalog))))
+     (section "Committed proof-of-life verdicts"
+              "<code>pension.store/proof-of-life-of</code> per member. A <em>failed</em> screening never commits — the governor HARD-holds the screening op on its own finding — so a failure appears in the hold table above, not here."
+              (tbl ["Member" "Name" "Verdict"]
+                   (proof-of-life-rows db)))
+
+     (section "Draft disbursement-payment records"
+              "Built by <code>pension.registry/register-disbursement-payment</code> — the record a fund would keep. Unsigned drafts: signature is the licensed fund's act, not this actor's."
+              (tbl ["Record id" "Kind" "Member" "Disbursement" "Type" "Disbursed amount" "Jurisdiction" "Immutable"]
+                   (payment-rows db)))
+
+     (section "Draft payout-continuation records"
+              "Built by <code>pension.registry/register-payout-continuation</code>. Continuation is recurring: each proof-of-life cycle is its own independent authorization, so there is deliberately no 'already continued' guard."
+              (tbl ["Record id" "Kind" "Member" "Jurisdiction" "Immutable"]
+                   (continuation-rows db)))
+
+     (section "Approver attribution — measured, not assumed"
+              (str "For each approved commit, the page looks the written record back up through the Store protocol and searches it for any key mentioning <code>approv</code>. "
+                   "It does not hard-code a claim about this store: if <code>pension.store</code> is later changed to keep the approver on more effects, this table changes with it. "
+                   "Measured in this run: <strong>" kept " kept, " dropped " dropped</strong> of " (count attrib) " approved commits. "
+                   "Where the record dropped it, the approver is still recoverable from the append-only audit ledger's <code>:approval-granted</code> fact — the gap is labelled rather than hidden, "
+                   "because silently omitting it would leave a reader unable to tell &quot;nobody approved this&quot; from &quot;the store did not keep who did&quot;. "
+                   "<code>:disbursement/filed</code> is absent from this table by construction: <code>:disbursement/file</code> is auto-eligible at the only phase that enables it, "
+                   "so no approval can ever attach to it and this run cannot measure it.")
+              (tbl ["Op" "Subject" "Effect" "Approver (run)" "Approver (audit ledger)" "Read back from" "Approver in the stored record"]
+                   (attribution-rows db runs)))
+
+     (section "Audit ledger (append-only, this run)"
+              "Every decision fact the run wrote, in append order. Holds are written by the <code>:hold</code> node with no SSoT mutation; commits are written by the <code>:commit</code> node, the only node that touches the store."
+              (tbl ["#" "Fact" "Op" "Subject" "Disposition" "Basis / rules / phase reason" "Confidence" "Summary"]
+                   (ledger-rows ledger)))
 
      "</main>\n"
      "<footer>\n"
-     "  <p class=\"muted\">Generated by <code>pension.render-html</code> from a real "
-     "<code>pension.operation</code> run against a freshly seeded <code>pension.store/MemStore</code>. "
-     "No hand-written rows, no timestamps — deterministic across reruns.</p>\n"
+     "  <p>cloud-itonami-isic-6530 · pension funding actor · generated by <code>pension.render-html</code> from a real "
+     "<code>langgraph.graph/run*</code> execution of <code>pension.operation</code>. "
+     "Certificates produced by <code>pension.registry</code> are UNSIGNED drafts — signature is the licensed pension fund's act, not this actor's.</p>\n"
      "</footer>\n"
      "</body></html>\n")))
 
-(defn -main [& args]
-  (let [out (or (first args) "docs/samples/operator-console.html")
-        {:keys [db steps] :as result} (run-demo!)
-        ledger (vec (store/ledger db))
-        hard (vec (hard-holds ledger))
-        phased (vec (phase-holds ledger))
-        rules (sort (distinct (map (comp :rule first :violations) hard)))]
-    ;; Build-time invariant, not a convention: a console that shows no
-    ;; genuine compliance refusal is not evidence that the governor
-    ;; works, so refuse to write the file at all. A phase-gate hold does
-    ;; NOT satisfy this -- `hard-holds` requires a non-empty violation
-    ;; list, so a scenario that only tripped the rollout gate still
-    ;; throws here.
-    (when (empty? hard)
-      (throw (ex-info "render-html: the run produced ZERO HARD governor holds; refusing to write a console that cannot demonstrate the compliance layer"
-                      {:ledger-facts (count ledger)
-                       :governor-hold-facts (count (filter #(= :governor-hold (:t %)) ledger))
-                       :phase-gate-holds (count phased)})))
-    (.mkdirs (java.io.File. (or (.getParent (java.io.File. ^String out)) ".")))
-    (spit out (render result))
-    (println "wrote" out)
-    (println "  steps            " (count steps))
-    (println "  ledger facts     " (count ledger))
-    (println "  HARD holds       " (count hard) (vec rules))
-    (println "  phase-gate holds " (count phased))
-    (println "  payment drafts   " (count (store/payment-history db)))
-    (println "  continuation     " (count (store/continuation-history db)))
-    (doseq [a (attribution-rows db steps)]
-      (println "  approver" (:op a) (:subject a) "->" (:approved-by a)
-               "| register" (pr-str (:register a))
-               "| retained" (pr-str (:retained a))))))
+;; ------------------------------- main -------------------------------
+
+(defn -main
+  "Regenerates `docs/samples/operator-console.html` from a real run.
+
+  Build-time invariant, deliberately two-stage: the page must show the
+  compliance governor actually refusing something. Counting
+  `:governor-hold` facts alone is NOT enough -- a rollout phase-gating
+  hold is written with the same tag but an EMPTY `:violations` vector,
+  so a run in which the governor never objected to anything would
+  still satisfy a naive count. We therefore require BOTH at least one
+  hold AND at least one hold carrying a non-empty violation with a
+  named rule. The page is not written when this fails."
+  [& args]
+  (let [out    (or (first args) "docs/samples/operator-console.html")
+        result (run-demo!)
+        ledger (vec (store/ledger (:db result)))
+        holds  (filterv #(= :governor-hold (:t %)) ledger)
+        hard   (hard-holds ledger)
+        ruled  (filterv #(seq (remove nil? (map :rule (:violations %)))) hard)]
+    (when (empty? holds)
+      (throw (ex-info "render-html: the scenario produced NO governor-hold facts at all -- refusing to write a console that cannot show a refusal"
+                      {:ledger-facts (count ledger)})))
+    (when (empty? ruled)
+      (throw (ex-info (str "render-html: " (count holds) " governor-hold fact(s), but none carries a named violation -- "
+                           "these are rollout phase-gating holds, not compliance refusals. Refusing to write the console.")
+                      {:holds (count holds)
+                       :hard-holds (count hard)
+                       :phase-gate-holds (count (phase-gate-holds ledger))})))
+    (let [html (render result)]
+      (io/make-parents out)
+      (spit out html)
+      (println "wrote" out
+               (str "(" (count ledger) " ledger facts, "
+                    (count hard) " HARD governor holds over "
+                    (count (distinct (map :rule (mapcat :violations hard)))) " distinct rules, "
+                    (count (phase-gate-holds ledger)) " phase-gate holds, "
+                    (count (store/payment-history (:db result))) " disbursement-payment drafts, "
+                    (count (store/continuation-history (:db result))) " payout-continuation drafts)")))))
