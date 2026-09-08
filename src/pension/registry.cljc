@@ -33,7 +33,7 @@
   the disbursement or continuing the payout itself (those are
   `pension.operation`'s `:disbursement/pay` and `:payout/continue`,
   always human-gated -- see README `Actuation`)."
-  (:require [clojure.string :as str]))
+  (:require [kotoba.lang.text :as str]))
 
 (defn- unsigned-certificate
   "Every certificate this actor produces is UNSIGNED -- signature is the
@@ -110,7 +110,7 @@
     (throw (ex-info "disbursement-payment: jurisdiction required" {})))
   (when (< sequence 0)
     (throw (ex-info "disbursement-payment: sequence must be >= 0" {})))
-  (let [disbursement-number (str (str/upper-case jurisdiction) "-DISB-" (zero-pad sequence 6))
+  (let [disbursement-number (str (str/upper jurisdiction) "-DISB-" (zero-pad sequence 6))
         record {"record_id" disbursement-number
                 "kind" "disbursement-payment-draft"
                 "member_id" member-id
@@ -135,7 +135,7 @@
     (throw (ex-info "payout-continuation: jurisdiction required" {})))
   (when (< sequence 0)
     (throw (ex-info "payout-continuation: sequence must be >= 0" {})))
-  (let [continuation-number (str (str/upper-case jurisdiction) "-CONT-" (zero-pad sequence 6))
+  (let [continuation-number (str (str/upper jurisdiction) "-CONT-" (zero-pad sequence 6))
         record {"record_id" continuation-number
                 "kind" "payout-continuation-draft"
                 "member_id" member-id
