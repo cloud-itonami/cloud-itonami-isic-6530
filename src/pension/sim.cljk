@@ -1,5 +1,5 @@
 (ns pension.sim
-  "Demo driver -- `clojure -M:dev:run`. Walks a clean member through
+  "Demo driver -- `kbb -M:dev:run`. Walks a clean member through
   intake -> jurisdiction benefit-disbursement assessment -> disbursement
   filing (auto-commits; no capital risk) -> disbursement-payment
   proposal (always escalates) -> human approval -> commit, then a clean

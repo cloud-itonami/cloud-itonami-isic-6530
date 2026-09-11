@@ -13,7 +13,7 @@
   run actually wrote.
 
   The scenario is a superset of this repo's own `pension.sim` demo
-  driver (`clojure -M:dev:run`, confirmed BEFORE writing this file to
+  driver (`kbb -M:dev:run`, confirmed BEFORE writing this file to
   produce a sensible ledger against the real seeded member ids
   `member-1`..`member-6`), extended so that:
 
@@ -37,7 +37,7 @@
   same seed produces byte-identical output across reruns (verify by
   rendering twice into two scratch files and diffing).
 
-  Usage: `clojure -M:render-html [out-file]`
+  Usage: `kbb -M:render-html [out-file]`
   (default `docs/samples/operator-console.html`)."
   (:require [kotoba.lang.text :as str]
             [jp-go-dds.skin]
@@ -428,7 +428,7 @@
 
      (section "会員台帳 (SSoT)"
               (str "Build-time snapshot generated from <code>pension.store</code> by "
-                   "<code>pension.render-html</code> (<code>clojure -M:render-html</code>). "
+                   "<code>pension.render-html</code> (<code>kbb -M:render-html</code>). "
                    "Balances are the store's own values AFTER this run — <code>member-1</code>'s "
                    "<code>disbursed-to-date</code> was advanced by the disbursement the human approved, "
                    "which is what makes the later over-entitlement refusal fire.")

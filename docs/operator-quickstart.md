@@ -15,7 +15,7 @@ If you are part of the monorepo (`com-junkawasaki/`), the `:dev` alias brings lo
 Drive the Pension Governor through two clean lifecycles (disbursement payment, payout continuation) and seven hard-hold cases:
 
 ```bash
-clojure -M:dev:run
+kbb -M:dev:run
 ```
 
 This runs `pension.sim`, the demo driver, which exercises the core actor contract:
@@ -28,13 +28,13 @@ This runs `pension.sim`, the demo driver, which exercises the core actor contrac
 Verify the governor contract, phase invariants, store parity, registry conformance, and jurisdiction coverage:
 
 ```bash
-clojure -M:dev:test
+kbb -M:dev:test
 ```
 
 Or, to run tests under ClojureScript (the primary gate — our `.cljc` suite runs on a real JavaScript host first):
 
 ```bash
-clojure -Sdeps '{:paths ["src" "test"]}' -M:dev:cljs \
+kbb -Sdeps '{:paths ["src" "test"]}' -M:dev:cljs \
   -m cljs.main --target node -m pension.portable-cljs-test-runner
 ```
 
@@ -43,7 +43,7 @@ clojure -Sdeps '{:paths ["src" "test"]}' -M:dev:cljs \
 Check for lint errors (this is the CI gate):
 
 ```bash
-clojure -M:lint
+kbb -M:lint
 ```
 
 ## The Governor
