@@ -3,7 +3,7 @@
   disbursement_entitlement.kotoba, see wasm/README.md) via kototama.tender
   -- proves pension.governor's disbursement-exceeds-entitlement check
   (`disbursement-exceeds-entitlement-violations` in
-  src/pension/governor.cljc, which independently recomputes the cap via
+  src/pension/governor.cljk, which independently recomputes the cap via
   `pension.registry/compute-max-disbursement`) runs as a real WASM guest,
   not just as JVM Clojure.
 

@@ -48,7 +48,7 @@ clojure -M:lint
 
 ## The Governor
 
-The **Pension Governor** sits in `src/pension/governor.cljc`. It enforces seven hard checks before committing any proposal:
+The **Pension Governor** sits in `src/pension/governor.cljk`. It enforces seven hard checks before committing any proposal:
 
 1. **spec-basis**: Jurisdiction benefit-disbursement/withholding requirements must cite an official source
 2. **evidence-incomplete**: All required evidence must be present
@@ -66,7 +66,7 @@ See `test/pension/governor_test.clj` for contract verification.
 
 ## The Store
 
-Member records, benefit calculations, disbursement history, and audit ledger are managed by `src/pension/store.cljc`:
+Member records, benefit calculations, disbursement history, and audit ledger are managed by `src/pension/store.cljk`:
 
 - **In-memory**: `MemStore` for local testing
 - **Persistent**: `DatomicStore` (via `langchain.db`) for production deployments
@@ -75,8 +75,8 @@ No separate party/policyholder record — the member entity is self-contained.
 
 ## Demo Data & Facts
 
-- **Member intake** flows through `src/pension/pensionllm.cljc` (mock or real LLM advisor)
-- **Jurisdiction facts** (benefit requirements, spec citations) live in `src/pension/facts.cljc`
+- **Member intake** flows through `src/pension/pensionllm.cljk` (mock or real LLM advisor)
+- **Jurisdiction facts** (benefit requirements, spec citations) live in `src/pension/facts.cljk`
 - Current coverage: JPN, USA, GBR, DEU (4 of ~194 jurisdictions worldwide)
 
 See `pension.facts/coverage` for an honest reporting of which requested jurisdictions have official spec-basis citations.
