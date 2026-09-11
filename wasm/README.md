@@ -5,11 +5,11 @@ disbursement-exceeds-entitlement-violations`'s independent recompute --
 does a requested benefit-disbursement amount exceed the member's OWN
 remaining entitlement, per `pension.registry/compute-max-disbursement`'s
 real, simplified lump-sum-cap / period-certain-annuity-installment
-formula pair? (see `src/pension/governor.cljc` lines ~186-199 and
-`src/pension/registry.cljc`'s `compute-max-disbursement`, lines ~53-89) --
+formula pair? (see `src/pension/governor.cljk` lines ~186-199 and
+`src/pension/registry.cljk`'s `compute-max-disbursement`, lines ~53-89) --
 into the minimal `.kotoba` language subset, compiled to a real WASM
 module via `kotoba wasm emit`, and hosted via `kototama.tender`
-(`test/wasm/disbursement_entitlement_test.clj`).
+(`test/wasm/disbursement_entitlement_test.cljk`).
 
 This follows the same `kotoba wasm emit` → `kototama.tender` pipeline
 `cloud-itonami-isic-6492`'s `wasm/affordability.kotoba`,

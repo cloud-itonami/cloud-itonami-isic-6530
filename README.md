@@ -147,14 +147,14 @@ siblings have toward the same lib.
 
 | File | Role |
 |---|---|
-| `src/pension/store.cljc` | **Store** protocol -- `MemStore` ‖ `DatomicStore` (`langchain.db`) + append-only audit ledger + disbursement-payment/payout-continuation history. No separate party concept -- the member entity bundles the role a separate policyholder/party record plays in sibling actors |
-| `src/pension/registry.cljc` | Disbursement-payment + payout-continuation draft records, plus `compute-max-disbursement` (REAL, simplified lump-sum-cap and period-certain-annuity formulas -- see docstring for what it does not model) |
-| `src/pension/facts.cljc` | Per-jurisdiction benefit-disbursement/withholding catalog with an official spec-basis citation per entry, honest coverage reporting |
-| `src/pension/pensionllm.cljc` | **Pension-LLM Advisor** -- `mock-advisor` ‖ `llm-advisor`; intake/assessment/filing/payment/screening/continuation proposals |
-| `src/pension/governor.cljc` | **Pension Governor** -- 7 HARD checks (spec-basis · evidence-incomplete · member-not-vested · disbursement-missing · disbursement-exceeds-entitlement, independent recompute · member-not-in-payout · proof-of-life-failed, unconditional evaluation) + double-payment guard + 1 soft (confidence/actuation gate) |
-| `src/pension/phase.cljc` | **Phase 0→3** -- read-only → assisted intake → assisted assess → supervised (payment/continuation always human; member intake + disbursement filing auto-eligible, no capital risk) |
-| `src/pension/operation.cljc` | **OperationActor** -- langgraph-clj StateGraph |
-| `src/pension/sim.cljc` | demo driver |
+| `src/pension/store.cljk` | **Store** protocol -- `MemStore` ‖ `DatomicStore` (`langchain.db`) + append-only audit ledger + disbursement-payment/payout-continuation history. No separate party concept -- the member entity bundles the role a separate policyholder/party record plays in sibling actors |
+| `src/pension/registry.cljk` | Disbursement-payment + payout-continuation draft records, plus `compute-max-disbursement` (REAL, simplified lump-sum-cap and period-certain-annuity formulas -- see docstring for what it does not model) |
+| `src/pension/facts.cljk` | Per-jurisdiction benefit-disbursement/withholding catalog with an official spec-basis citation per entry, honest coverage reporting |
+| `src/pension/pensionllm.cljk` | **Pension-LLM Advisor** -- `mock-advisor` ‖ `llm-advisor`; intake/assessment/filing/payment/screening/continuation proposals |
+| `src/pension/governor.cljk` | **Pension Governor** -- 7 HARD checks (spec-basis · evidence-incomplete · member-not-vested · disbursement-missing · disbursement-exceeds-entitlement, independent recompute · member-not-in-payout · proof-of-life-failed, unconditional evaluation) + double-payment guard + 1 soft (confidence/actuation gate) |
+| `src/pension/phase.cljk` | **Phase 0→3** -- read-only → assisted intake → assisted assess → supervised (payment/continuation always human; member intake + disbursement filing auto-eligible, no capital risk) |
+| `src/pension/operation.cljk` | **OperationActor** -- langgraph-clj StateGraph |
+| `src/pension/sim.cljk` | demo driver |
 | `test/pension/*_test.clj` | governor contract · phase invariants · store parity · registry conformance · facts coverage |
 | `wasm/disbursement_entitlement.kotoba` | PoC: a WASM-compiled (`kotoba-lang/kotoba` -> `kotoba-lang/kototama`'s `actor:host` ABI) port of `pension.registry/compute-max-disbursement` + `pension.governor`'s `disbursement-exceeds-entitlement-violations` comparison -- see `wasm/README.md` for scope, the input/output ABI, and what's out of scope |
 
