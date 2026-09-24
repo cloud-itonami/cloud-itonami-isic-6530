@@ -13,7 +13,7 @@
   wasm/disbursement_entitlement.kotoba's ABI doc comment for the offset
   layout."
   (:require [clojure.java.io :as io]
-            [clojure.test :refer [deftest is testing]]
+            [kotoba.test :refer [deftest is testing]]
             [kototama.contract :as contract]
             [kototama.tender :as tender]))
 

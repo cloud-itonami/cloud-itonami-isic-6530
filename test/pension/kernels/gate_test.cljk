@@ -13,7 +13,7 @@
   3. governor boundary — the confidence floor boundary and the
      fail-closed treatment of out-of-range confidence, exercised
      through the real `pension.governor/check` façade."
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [pension.governor :as governor]
             [pension.kernels.gate :as gate]))
 

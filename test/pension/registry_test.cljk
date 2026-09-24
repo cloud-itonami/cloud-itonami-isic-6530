@@ -1,5 +1,5 @@
 (ns pension.registry-test
-  (:require [clojure.test :refer [deftest is]]
+  (:require [kotoba.test :refer [deftest is]]
             [pension.registry :as r]))
 
 ;; ----------------------------- compute-max-disbursement -----------------------------

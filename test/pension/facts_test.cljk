@@ -1,5 +1,5 @@
 (ns pension.facts-test
-  (:require [clojure.test :refer [deftest is]]
+  (:require [kotoba.test :refer [deftest is]]
             [pension.facts :as facts]))
 
 (deftest jpn-has-a-spec-basis
