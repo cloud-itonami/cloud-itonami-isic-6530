@@ -1,0 +1,33 @@
+;; What this vertical's robot physically does, declared for
+;; kotoba.robotics.process (kotoba-lang/robotics). `kbb -M:dev:physics` runs it.
+;;
+;; README "Robotics premise": an in-person verification kiosk robot performs
+;; the physical proof-of-life check required before continuing a retiree's
+;; payout (ISIC 6530, pension funding). Its physical work: driving a tall
+;; kiosk down a care-home corridor to the retiree's room without tipping, and
+;; presenting the ID / signature pad to a seated retiree.
+;;
+;; Every number without a cited source is marked `estimate` in its :basis.
+;; Replacing an estimate with a sourced value is this bot's growth work.
+{:physics/schema "itonami.physical-ai.spec.v1"
+ :repo "cloud-itonami/cloud-itonami-isic-6530"
+ :cases
+ [{:id :kiosk-to-retiree-room
+   :kind :transport
+   :procedure "mobile verification kiosk drives down a care-home corridor to the retiree's room and stops at the door"
+   :params {:mass-kg 60.0 :payload-kg 8.0 :distance-m 30.0 :v-max-mps 0.8 :a-max-mps2 0.4
+            :drive-force-n 150.0 :crr 0.02 :cog-height-m 0.75 :payload-cog-height-m 1.10
+            :support-half-length-m 0.25 :max-time-s 1800.0}
+   :sweep {:param :brake-decel-mps2 :values [0.5 1.0 1.5 2.0 2.5 3.0]}
+   :quantity :min-tipover-margin
+   :limit {:min 0.4 :basis "estimate: a tall kiosk near frail pedestrians keeps 40 % of its static tip-over margin on an emergency stop"}
+   :boundary {:lo 0.3 :hi 4.0}}
+  {:id :present-id-pad-to-retiree
+   :kind :manipulator
+   :procedure "arm swings the ID-scanner / signature pad from its dock to a seated retiree's lap height"
+   :params {:l1-m 0.40 :l2-m 0.35 :m1-kg 3.0 :m2-kg 2.0 :payload-kg 1.2
+            :from [0.15 0.50] :to [0.60 0.10] :steps 500}
+   :sweep {:param :duration-s :values [0.5 0.8 1.2 2.0 3.0]}
+   :quantity :peak-tau1-nm
+   :limit {:max 30.0 :basis "estimate: shoulder torque cap for a power-and-force-limited arm working next to a seated person"}
+   :boundary {:lo 0.3 :hi 5.0}}]}
